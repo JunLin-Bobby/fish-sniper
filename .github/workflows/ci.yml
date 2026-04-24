@@ -29,9 +29,15 @@ jobs:
         run: ruff check .
 
       - name: Guard against SKIP_AUTH in CI
+        working-directory: ${{ github.workspace }}
         run: |
-          if grep -r "SKIP_AUTH=true" . --include="*.env" --include="*.toml" --include="*.yml"; then
-            echo "ERROR: SKIP_AUTH=true found in a committed config file" && exit 1
+          if grep -r "SKIP_AUTH=true" . \
+              --include=".env*" \
+              --include="*.toml" \
+              --include="*.yml" \
+              --include="*.yaml"; then
+            echo "ERROR: SKIP_AUTH=true found in a committed config file"
+            exit 1
           fi
 
       - name: Test (pytest)
