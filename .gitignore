@@ -14,5 +14,6 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 
-# Prompts (private product docs)
+# Private product docs
 prompts/
+docs/
