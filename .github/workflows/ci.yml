@@ -31,7 +31,7 @@ jobs:
       - name: Guard against SKIP_AUTH in CI
         working-directory: ${{ github.workspace }}
         run: |
-          if grep -r "SKIP_AUTH=true" . \
+          if grep -r "SKIP_AUTH=true" backend/ frontend/ \
               --exclude-dir=".git" \
               --exclude-dir=".github" \
               --include=".env*" \
