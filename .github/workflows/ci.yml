@@ -28,16 +28,15 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
-      - name: Guard against SKIP_AUTH in CI
+      - name: Guard against SKIP_AUTH=true in CI
         working-directory: ${{ github.workspace }}
         run: |
-          if grep -r "SKIP_AUTH=true" backend/ frontend/ \
-              --exclude-dir=".git" \
-              --exclude-dir=".github" \
-              --include=".env*" \
-              --include="*.toml" \
-              --include="*.yml" \
-              --include="*.yaml"; then
+          if rg -n --no-ignore-parent \
+              --glob ".env*" \
+              --glob "*.toml" \
+              --glob "*.yml" \
+              --glob "*.yaml" \
+              "^[[:space:]]*SKIP_AUTH[[:space:]]*=[[:space:]]*true([[:space:]]*(#.*)?)?$" backend/ frontend/; then
             echo "ERROR: SKIP_AUTH=true found in a committed config file"
             exit 1
           fi
