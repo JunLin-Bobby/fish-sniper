@@ -5,6 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "jsx": "react-jsx",
     "skipLibCheck": true,
+    "strict": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
