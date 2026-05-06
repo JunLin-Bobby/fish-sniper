@@ -7,10 +7,14 @@ load_dotenv()
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from deps import get_fish_sniper_backend_settings
+from rate_limiting import fish_sniper_api_limiter, fish_sniper_handle_rate_limit_exceeded
+from routes.agent_routes import router as agent_router
 from routes.auth_routes import router as auth_router
 from routes.user_preferences_routes import router as user_preferences_router
+from routes.weather_routes import router as weather_router
 
 
 def create_fish_sniper_app() -> FastAPI:
@@ -18,6 +22,9 @@ def create_fish_sniper_app() -> FastAPI:
 
     fish_sniper_backend_settings = get_fish_sniper_backend_settings()
     app = FastAPI(title="FishSniper API")
+    app.state.limiter = fish_sniper_api_limiter
+    fish_sniper_api_limiter.enabled = fish_sniper_backend_settings.rate_limit_enabled
+    app.add_exception_handler(RateLimitExceeded, fish_sniper_handle_rate_limit_exceeded)
 
     @app.exception_handler(HTTPException)
     def fish_sniper_http_exception_handler(
@@ -40,6 +47,8 @@ def create_fish_sniper_app() -> FastAPI:
 
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(user_preferences_router, prefix="/users", tags=["users"])
+    app.include_router(weather_router, prefix="/weather", tags=["weather"])
+    app.include_router(agent_router, prefix="/agent", tags=["agent"])
 
     @app.get("/health", tags=["health"])
     def handle_health_check() -> dict[str, str]:

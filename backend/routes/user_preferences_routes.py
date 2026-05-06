@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from deps import FishSniperPersistenceDep, ReferenceTimeUtcCallableDep
 from persistence.errors import FishSniperPersistenceUnavailableError
+from rate_limiting import fish_sniper_apply_api_rate_limit
 from schemas.user_preferences_schemas import (
     SaveUserPreferencesRequestBody,
     SaveUserPreferencesResponseBody,
@@ -32,10 +33,13 @@ router = APIRouter()
         },
     },
 )
+@fish_sniper_apply_api_rate_limit("120/minute")
 def handle_get_user_preferences_request(
+    request: Request,
     fish_sniper_user_id: FishSniperUserIdDep,
     fish_sniper_persistence: FishSniperPersistenceDep,
 ) -> UserPreferencesResponseBody:
+    _ = request
     try:
         preferences_row = fish_sniper_persistence.fetch_user_preferences_row_for_user_id(
             fish_sniper_user_id=fish_sniper_user_id,
@@ -69,12 +73,15 @@ def handle_get_user_preferences_request(
         },
     },
 )
+@fish_sniper_apply_api_rate_limit("120/minute")
 def handle_save_user_preferences_request(
+    request: Request,
     request_body: SaveUserPreferencesRequestBody,
     fish_sniper_user_id: FishSniperUserIdDep,
     fish_sniper_persistence: FishSniperPersistenceDep,
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
 ) -> SaveUserPreferencesResponseBody:
+    _ = request
     reference_time_utc = reference_time_utc_callable()
     try:
         fish_sniper_persistence.upsert_user_preferences_region_for_user_id(

@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
+# Force predictable CORS + rate limits before `main` is imported by test modules.
+os.environ["FRONTEND_ORIGIN"] = "http://localhost:5173"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
@@ -180,6 +186,8 @@ def reset_fish_sniper_backend_settings_cache(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setenv("JWT_SECRET", "unit-test-jwt-secret")
     monkeypatch.setenv("SKIP_AUTH", "false")
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+    monkeypatch.setenv("FRONTEND_ORIGIN", "http://localhost:5173")
     get_fish_sniper_backend_settings.cache_clear()
     yield
     get_fish_sniper_backend_settings.cache_clear()

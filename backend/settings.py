@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -59,10 +59,56 @@ class FishSniperBackendSettings(BaseSettings):
         default="HS256",
         description="JWT signing algorithm.",
     )
-    
+
     jwt_expire_days: int = Field(
         default=7,
         description="Access token lifetime in days.",
+    )
+
+    openweathermap_api_key: str | None = Field(
+        default=None,
+        description="OpenWeatherMap API key for /weather/current.",
+    )
+
+    gemini_api_key: str | None = Field(
+        default=None,
+        description="Google Gemini API key for strategy generation.",
+    )
+
+    gemini_model: str = Field(
+        default="gemini-3.0-flash",
+        description="Gemini model id for structured JSON and battle plan summary.",
+    )
+
+    langfuse_public_key: str | None = Field(
+        default=None,
+        description="Langfuse public key (optional; tracing disabled if unset).",
+    )
+
+    langfuse_secret_key: str | None = Field(
+        default=None,
+        description="Langfuse secret key (optional).",
+    )
+
+    langfuse_host: str | None = Field(
+        default=None,
+        description="Langfuse API host override, e.g. https://cloud.langfuse.com",
+    )
+
+    weather_fail: bool = Field(
+        default=False,
+        description="If true, weather fetch always fails (local dev/tests). Env: WEATHER_FAIL.",
+        validation_alias=AliasChoices("WEATHER_FAIL", "weather_fail"),
+    )
+
+    rate_limit_enabled: bool = Field(
+        default=True,
+        description="If false, slowapi and email bucket limits are skipped (tests).",
+    )
+
+    skip_auth_rate_limit_email: str = Field(
+        default="skip-auth-dev@fishsniper.local",
+        description="Synthetic email key for rate limits when SKIP_AUTH is enabled.",
     )
 
 

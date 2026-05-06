@@ -25,7 +25,7 @@ def get_current_fish_sniper_user_id_from_authorization_header(
 
     if authorization is None or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-        
+
     access_token_jwt = authorization.removeprefix("Bearer ").strip()
     return decode_fish_sniper_user_id_from_access_token_jwt(
         access_token_jwt=access_token_jwt,

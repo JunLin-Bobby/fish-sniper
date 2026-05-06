@@ -12,8 +12,11 @@ from email_delivery.port import TransactionalEmailSenderPort
 from email_delivery.resend_transactional_email_adapter import ResendTransactionalEmailSenderAdapter
 from persistence.port import FishSniperPersistencePort
 from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
+from weather.port import WeatherSnapshotCachePort
+from weather.weather_service import create_default_in_memory_weather_cache
 
 _supabase_fish_sniper_persistence_singleton: FishSniperPersistencePort | None = None
+_fish_sniper_weather_snapshot_cache_singleton: WeatherSnapshotCachePort | None = None
 
 
 def _default_reference_time_utc_callable() -> datetime:
@@ -59,6 +62,15 @@ def get_transactional_email_sender_port() -> TransactionalEmailSenderPort:
             detail={"error": "Email delivery is not configured for this environment"},
         )
     return ResendTransactionalEmailSenderAdapter(settings)
+
+
+def get_fish_sniper_weather_snapshot_cache_port() -> WeatherSnapshotCachePort:
+    """Return the process-wide in-memory weather cache (swap for Redis-backed cache later)."""
+
+    global _fish_sniper_weather_snapshot_cache_singleton
+    if _fish_sniper_weather_snapshot_cache_singleton is None:
+        _fish_sniper_weather_snapshot_cache_singleton = create_default_in_memory_weather_cache()
+    return _fish_sniper_weather_snapshot_cache_singleton
 
 
 def get_otp_code_generator_callable() -> Callable[[], str]:

@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
 
 import { readFishSniperApiBaseUrlFromPublicEnv } from './config/readFishSniperPublicEnv.ts'
 import { useFishSniperAuthSessionState } from './hooks/useFishSniperAuthSessionState.ts'
 import { useFishSniperUserPreferencesRemoteState } from './hooks/useFishSniperUserPreferencesRemoteState.ts'
+import { FishSniperSignedInAppShell } from './layout/FishSniperSignedInAppShell.tsx'
 import { FishSniperEmailOtpSignInPage } from './pages/FishSniperEmailOtpSignInPage.tsx'
-import { FishSniperHomePlaceholderPage } from './pages/FishSniperHomePlaceholderPage.tsx'
+import { FishSniperMyLogsPlaceholderPage } from './pages/FishSniperMyLogsPlaceholderPage.tsx'
 import { FishSniperOnboardingRegionPage } from './pages/FishSniperOnboardingRegionPage.tsx'
+import { FishSniperStrategyPage } from './pages/FishSniperStrategyPage.tsx'
 
 export default function App() {
   const fishSniperApiBaseUrl = useMemo(() => readFishSniperApiBaseUrlFromPublicEnv(), [])
@@ -85,6 +88,20 @@ export default function App() {
   }
 
   return (
-    <FishSniperHomePlaceholderPage onSignOut={fishSniperAuthSession.clearAccessTokenJwt} />
+    <Routes>
+      <Route
+        element={
+          <FishSniperSignedInAppShell
+            fishSniperApiBaseUrl={fishSniperApiBaseUrl}
+            fishSniperAccessTokenJwt={fishSniperAuthSession.accessTokenJwt}
+            onSignOut={fishSniperAuthSession.clearAccessTokenJwt}
+          />
+        }
+      >
+        <Route index element={<Navigate to="/strategy" replace />} />
+        <Route path="strategy" element={<FishSniperStrategyPage />} />
+        <Route path="logs" element={<FishSniperMyLogsPlaceholderPage />} />
+      </Route>
+    </Routes>
   )
 }

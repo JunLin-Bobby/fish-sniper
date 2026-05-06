@@ -15,6 +15,10 @@ from deps import (
     TransactionalEmailSenderDep,
 )
 from persistence.errors import FishSniperPersistenceUnavailableError
+from rate_limiting import (
+    enforce_send_otp_email_rate_limit_or_raise_429,
+    enforce_verify_otp_email_rate_limit_or_raise_429,
+)
 from schemas.auth_schemas import (
     OtpErrorResponseBody,
     SendEmailOtpRequestBody,
@@ -57,8 +61,13 @@ def handle_send_email_otp_request(
     transactional_email_sender: TransactionalEmailSenderDep,
     otp_code_generator: OtpCodeGeneratorDep,
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
+    fish_sniper_backend_settings: FishSniperSettingsDep,
 ) -> SendEmailOtpResponseBody:
     normalized_email_address = normalize_email_address_for_otp_login(str(request_body.email))
+    enforce_send_otp_email_rate_limit_or_raise_429(
+        fish_sniper_backend_settings=fish_sniper_backend_settings,
+        normalized_email_address=normalized_email_address,
+    )
     reference_time_utc = reference_time_utc_callable()
     try:
         seconds_since_last_send = (
@@ -122,7 +131,6 @@ def handle_send_email_otp_request(
         },
     },
 )
-
 def handle_verify_email_otp_request(
     request_body: VerifyEmailOtpRequestBody,
     fish_sniper_persistence: FishSniperPersistenceDep,
@@ -130,6 +138,10 @@ def handle_verify_email_otp_request(
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
 ) -> VerifyEmailOtpResponseBody:
     normalized_email_address = normalize_email_address_for_otp_login(str(request_body.email))
+    enforce_verify_otp_email_rate_limit_or_raise_429(
+        fish_sniper_backend_settings=fish_sniper_backend_settings,
+        normalized_email_address=normalized_email_address,
+    )
     reference_time_utc = reference_time_utc_callable()
     try:
         otp_consumed = fish_sniper_persistence.delete_matching_unexpired_otp_or_noop(
@@ -158,6 +170,7 @@ def handle_verify_email_otp_request(
 
         access_token = issue_access_token_jwt_for_fish_sniper_user_id(
             fish_sniper_user_id=fish_sniper_user_id,
+            normalized_email_address=normalized_email_address,
             fish_sniper_backend_settings=fish_sniper_backend_settings,
         )
     except HTTPException:

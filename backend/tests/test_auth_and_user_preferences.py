@@ -31,15 +31,11 @@ def _install_p1_dependency_overrides(
     reference_time_utc_callable: Callable[[], datetime],
     otp_code_generator: Callable[[], str] | None = None,
 ) -> None:
-    app.dependency_overrides[get_fish_sniper_persistence_port] = (
-        lambda: fish_sniper_persistence
-    )
+    app.dependency_overrides[get_fish_sniper_persistence_port] = lambda: fish_sniper_persistence
     app.dependency_overrides[get_transactional_email_sender_port] = (
         lambda: transactional_email_sender
     )
-    app.dependency_overrides[get_reference_time_utc_callable] = (
-        lambda: reference_time_utc_callable
-    )
+    app.dependency_overrides[get_reference_time_utc_callable] = lambda: reference_time_utc_callable
     if otp_code_generator is not None:
         app.dependency_overrides[get_otp_code_generator_callable] = lambda: otp_code_generator
 

@@ -67,7 +67,7 @@ class SupabaseFishSniperPersistenceAdapter:
                 return None
             created_at_utc = _parse_supabase_timestamptz_to_utc(response.data[0]["created_at"])
             return (reference_time_utc - created_at_utc).total_seconds()
-            
+
         except Exception as exc:  # noqa: BLE001 — map provider errors to a single app error type
             logger.exception("Supabase OTP cooldown lookup failed")
             raise FishSniperPersistenceUnavailableError("otp cooldown lookup failed") from exc
@@ -150,9 +150,7 @@ class SupabaseFishSniperPersistenceAdapter:
     ) -> FishSniperUserRow:
         try:
             insert_response = (
-                self._client.table("users")
-                .insert({"email": normalized_email_address})
-                .execute()
+                self._client.table("users").insert({"email": normalized_email_address}).execute()
             )
             if not insert_response.data:
                 raise FishSniperPersistenceUnavailableError("user insert returned no row")
