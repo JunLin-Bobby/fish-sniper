@@ -1,0 +1,18 @@
+{
+  "date": "2026-04-20",
+  "fishing_location": "Charles River",
+  "fishing_scene": "river",
+  "target_species": "Largemouth Bass",
+  "water_depth_m": 3.0,
+  "lure_type": "Soft plastic swimbait",
+  "lure_color": "Green pumpkin",
+  "retrieve_speed": "Slow",
+  "caught_count": 2,
+  "weight_lb": 3.09,
+  "length_cm": 38.0,
+  "temperature_c": 18.5,
+  "condition_code": "cloudy",
+  "wind_speed_ms": 2.1,
+  "pressure_hpa": 1008,
+  "notes": "Best action near the bridge pillars at 6am"
+}

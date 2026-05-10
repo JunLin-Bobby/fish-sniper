@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from settings import FishSniperBackendSettings
@@ -30,14 +31,20 @@ def generate_text_from_gemini_with_system_and_user_prompts(
 
     client = genai.Client(api_key=api_key)
     model_id = fish_sniper_backend_settings.gemini_model
-    response = client.models.generate_content(
-        model=model_id,
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.4,
-        ),
-    )
+    try:
+        response = client.models.generate_content(
+            model=model_id,
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_instruction,
+                temperature=0.4,
+            ),
+        )
+    except genai_errors.APIError as exc:
+        logger.warning("Gemini generate_content failed model=%s: %s", model_id, exc)
+        raise FishSniperGeminiInvocationError(
+            "Gemini API request failed (rate limit, overload, or upstream error)"
+        ) from exc
     text = (response.text or "").strip()
     if not text:
         logger.warning("Gemini returned empty text for model=%s", model_id)

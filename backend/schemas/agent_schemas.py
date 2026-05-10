@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+FishSniperStrategyTargetSpeciesLiteral = Literal["Largemouth Bass", "Smallmouth Bass"]
 
 
 class ManualWeatherPayload(BaseModel):
@@ -22,6 +24,10 @@ class ManualWeatherPayload(BaseModel):
 class GenerateBassStrategyRequestBody(BaseModel):
     """User-supplied fishing context for the LangGraph strategy pipeline."""
 
+    region: str = Field(
+        min_length=1,
+        description="City or region label for weather lookup (OpenWeatherMap query).",
+    )
     fishing_location: str = Field(
         description="Free-text fishing spot label used for display and future RAG filters.",
     )
@@ -29,7 +35,9 @@ class GenerateBassStrategyRequestBody(BaseModel):
     fishing_scene: str = Field(
         description="Structured scene tag, e.g. river|lake|reservoir|pond.",
     )
-    target_species: str = Field(description="Target species; FishSniper P2 expects bass.")
+    target_species: FishSniperStrategyTargetSpeciesLiteral = Field(
+        description="Target black bass species for lure and retrieve guidance.",
+    )
 
     manual_weather: ManualWeatherPayload | None = Field(
         default=None,
@@ -37,11 +45,11 @@ class GenerateBassStrategyRequestBody(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_non_empty_location_and_species(self) -> GenerateBassStrategyRequestBody:
+    def validate_non_empty_location_region_and_scene(self) -> GenerateBassStrategyRequestBody:
+        if not self.region.strip():
+            raise ValueError("region must not be empty")
         if not self.fishing_location.strip():
             raise ValueError("fishing_location must not be empty")
-        if not self.target_species.strip():
-            raise ValueError("target_species must not be empty")
         if not self.fishing_scene.strip():
             raise ValueError("fishing_scene must not be empty")
         return self
@@ -56,16 +64,72 @@ class WeatherSnapshotPayload(BaseModel):
     condition_code: str = Field(description="Normalized FishSniper condition_code value.")
 
 
-class GenerateBassStrategySuccessResponseBody(BaseModel):
-    """Successful structured strategy plus markdown battle plan."""
+class BassStrategyRecommendationItem(BaseModel):
+    """One ranked lure option from the structured LLM output."""
 
-    lure_type: str = Field(description="Recommended lure category.")
-    lure_color: str = Field(description="Recommended lure color pattern.")
-    retrieve_speed: str = Field(description="Retrieve cadence guidance.")
-    target_zone: str = Field(description="Where to focus casts for this session.")
-    time_window: str = Field(description="Preferred time window to fish this pattern.")
+    lure_type: str = Field(description="Recommended lure category for this slot.")
+    lure_color: str = Field(description="Recommended color or pattern.")
+    retrieve_technique: str = Field(
+        description="How to work the lure (cadence, speed, pauses) for this option.",
+    )
+
+    @field_validator("lure_type", "lure_color", "retrieve_technique", mode="before")
+    @classmethod
+    def strip_outer_whitespace(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("lure_type", "lure_color", "retrieve_technique")
+    @classmethod
+    def reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Recommendation fields must be non-empty strings.")
+        return value
+
+
+class BassStrategyStructuredLlmOutputBody(BaseModel):
+    """Shape of the single Gemini JSON object (Steps 5–6 validation)."""
+
+    fish_state: str = Field(
+        description="Short paragraph on how the target bass are likely behaving today.",
+    )
+    confidence_note: str = Field(
+        description="Rationale; no-log branch cites general best practices.",
+    )
+    recommendations: Annotated[
+        list[BassStrategyRecommendationItem],
+        Field(
+            min_length=3,
+            max_length=3,
+            description="Exactly three ranked lure options (primary through tertiary).",
+        ),
+    ]
+
+    @field_validator("fish_state", "confidence_note", mode="before")
+    @classmethod
+    def strip_outer_whitespace(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("fish_state", "confidence_note")
+    @classmethod
+    def reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("fish_state and confidence_note must be non-empty strings.")
+        return value
+
+
+class GenerateBassStrategySuccessResponseBody(BaseModel):
+    """Successful structured strategy: fish state, three lure rows, and weather echo."""
+
+    fish_state: str = Field(description="Likely bass behavior / mood for today's conditions.")
+    recommendations: Annotated[
+        list[BassStrategyRecommendationItem],
+        Field(
+            min_length=3,
+            max_length=3,
+            description="Three ranked lure recommendations with retrieve guidance.",
+        ),
+    ]
     confidence_note: str = Field(description="Short rationale; P2 uses a no-log general note.")
-    battle_plan_summary: str = Field(description="Markdown battle plan for the session.")
     weather_snapshot: WeatherSnapshotPayload = Field(
         description="Weather used for generation (live or manual).",
     )

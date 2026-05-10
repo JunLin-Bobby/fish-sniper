@@ -80,6 +80,40 @@ class FishSniperBackendSettings(BaseSettings):
         description="Gemini model id for structured JSON and battle plan summary.",
     )
 
+    openai_api_key: str | None = Field(
+        default=None,
+        description="OpenAI API key for embedding writes and similarity-search queries.",
+    )
+
+    openai_embedding_model: str = Field(
+        default="text-embedding-3-small",
+        description=(
+            "OpenAI embedding model id; must produce vectors of "
+            "openai_embedding_dimensions length."
+        ),
+    )
+
+    openai_embedding_dimensions: int = Field(
+        default=1536,
+        description=(
+            "Vector dimension produced by openai_embedding_model. Must match the "
+            "fishing_logs.embedding column type vector(N)."
+        ),
+    )
+
+    openai_embedding_timeout_seconds: float = Field(
+        default=5.0,
+        description="Per-request timeout for OpenAI embedding calls.",
+    )
+
+    openai_embedding_max_attempts: int = Field(
+        default=2,
+        description=(
+            "Maximum number of attempts (initial + retries) per embedding call. "
+            "2 means: try once, retry once on transient failure, then give up."
+        ),
+    )
+
     langfuse_public_key: str | None = Field(
         default=None,
         description="Langfuse public key (optional; tracing disabled if unset).",
@@ -90,9 +124,13 @@ class FishSniperBackendSettings(BaseSettings):
         description="Langfuse secret key (optional).",
     )
 
-    langfuse_host: str | None = Field(
+    langfuse_base_url: str | None = Field(
         default=None,
-        description="Langfuse API host override, e.g. https://cloud.langfuse.com",
+        description=(
+            "Langfuse base URL (official env: LANGFUSE_BASE_URL), "
+            "e.g. https://us.cloud.langfuse.com or https://cloud.langfuse.com. "
+            "Passed to the SDK as ``host``."
+        ),
     )
 
     weather_fail: bool = Field(

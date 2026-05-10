@@ -26,7 +26,7 @@ export class FishSniperHttpStatusError extends Error {
 
 const DEFAULT_JSON_REQUEST_TIMEOUT_MS = 15_000
 
-async function parseFishSniperErrorMessageFromResponseBody(
+export async function parseFishSniperErrorMessageFromResponseBody(
   responseBodyText: string,
 ): Promise<string> {
   try {

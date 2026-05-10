@@ -10,6 +10,7 @@ from fastapi import Depends
 
 from email_delivery.port import TransactionalEmailSenderPort
 from email_delivery.resend_transactional_email_adapter import ResendTransactionalEmailSenderAdapter
+from embedding.port import FishSniperEmbeddingClient
 from persistence.port import FishSniperPersistencePort
 from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
 from weather.port import WeatherSnapshotCachePort
@@ -17,6 +18,7 @@ from weather.weather_service import create_default_in_memory_weather_cache
 
 _supabase_fish_sniper_persistence_singleton: FishSniperPersistencePort | None = None
 _fish_sniper_weather_snapshot_cache_singleton: WeatherSnapshotCachePort | None = None
+_fish_sniper_embedding_client_singleton: FishSniperEmbeddingClient | None = None
 
 
 def _default_reference_time_utc_callable() -> datetime:
@@ -81,6 +83,24 @@ def get_otp_code_generator_callable() -> Callable[[], str]:
     return generate_six_digit_otp_code_from_secrets
 
 
+def get_fish_sniper_embedding_client() -> FishSniperEmbeddingClient:
+    """Return the process-wide OpenAI embedding client.
+
+    Tests should override this dependency with a fake before issuing requests
+    that hit ``/logs`` POST or PATCH (see ``conftest.fake_embedding_client_autouse``).
+    """
+
+    global _fish_sniper_embedding_client_singleton
+    from embedding.openai_embedding_client import OpenAiFishSniperEmbeddingClient
+
+    if _fish_sniper_embedding_client_singleton is None:
+        settings = get_fish_sniper_backend_settings()
+        _fish_sniper_embedding_client_singleton = OpenAiFishSniperEmbeddingClient(
+            fish_sniper_backend_settings=settings,
+        )
+    return _fish_sniper_embedding_client_singleton
+
+
 FishSniperSettingsDep = Annotated[
     FishSniperBackendSettings,
     Depends(get_fish_sniper_backend_settings),
@@ -100,4 +120,8 @@ ReferenceTimeUtcCallableDep = Annotated[
 OtpCodeGeneratorDep = Annotated[
     Callable[[], str],
     Depends(get_otp_code_generator_callable),
+]
+FishSniperEmbeddingClientDep = Annotated[
+    FishSniperEmbeddingClient,
+    Depends(get_fish_sniper_embedding_client),
 ]

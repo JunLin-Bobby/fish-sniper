@@ -16,3 +16,4 @@ google-genai==1.38.0
 langfuse==3.2.1
 slowapi==0.1.9
 limits==4.2
+openai==2.36.0

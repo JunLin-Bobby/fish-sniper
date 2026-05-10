@@ -9,12 +9,17 @@ os.environ["FRONTEND_ORIGIN"] = "http://localhost:5173"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
 
-from persistence.port import FishSniperUserPreferencesRow, FishSniperUserRow
+from embedding.port import FishSniperEmbeddingClient
+from persistence.port import (
+    FishSniperFishingLogRow,
+    FishSniperUserPreferencesRow,
+    FishSniperUserRow,
+)
 from settings import get_fish_sniper_backend_settings
 
 
@@ -25,6 +30,7 @@ class InMemoryFishSniperPersistenceAdapter:
         self._otp_challenge_row_list: list[dict[str, object]] = []
         self._user_row_by_normalized_email: dict[str, FishSniperUserRow] = {}
         self._preferences_row_by_user_id: dict[UUID, FishSniperUserPreferencesRow] = {}
+        self._fishing_log_row_list: list[FishSniperFishingLogRow] = []
 
     def fetch_seconds_since_last_otp_send_for_email(
         self,
@@ -120,6 +126,202 @@ class InMemoryFishSniperPersistenceAdapter:
             profile_onboarding_completed_flag=profile_onboarding_completed_flag,
         )
 
+    def insert_fishing_log_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+        log_date: date,
+        fishing_location: str,
+        fishing_scene: str,
+        target_species: str,
+        water_depth_m: float,
+        lure_type: str,
+        lure_color: str,
+        retrieve_speed: str,
+        caught_count: int,
+        weight_lb: float | None,
+        length_cm: float | None,
+        temperature_c: float,
+        wind_speed_ms: float,
+        pressure_hpa: int,
+        condition_code: str,
+        notes: str,
+        embedding: list[float] | None,
+        embedding_text_version: int,
+        reference_time_utc: datetime,
+    ) -> UUID:
+        log_id = uuid4()
+        row = FishSniperFishingLogRow(
+            log_id=log_id,
+            fish_sniper_user_id=fish_sniper_user_id,
+            log_date=log_date,
+            fishing_location=fishing_location,
+            fishing_scene=fishing_scene,
+            target_species=target_species,
+            water_depth_m=water_depth_m,
+            lure_type=lure_type,
+            lure_color=lure_color,
+            retrieve_speed=retrieve_speed,
+            caught_count=caught_count,
+            weight_lb=weight_lb,
+            length_cm=length_cm,
+            temperature_c=temperature_c,
+            wind_speed_ms=wind_speed_ms,
+            pressure_hpa=pressure_hpa,
+            condition_code=condition_code,
+            notes=notes,
+            embedding_status="done" if embedding is not None else "pending",
+            embedding_text_version=embedding_text_version,
+            embedding_attempt_count=0,
+            created_at_utc=reference_time_utc,
+            updated_at_utc=reference_time_utc,
+        )
+        self._fishing_log_row_list.append(row)
+        return log_id
+
+    def list_fishing_logs_for_user_id_ordered_by_date_desc(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> list[FishSniperFishingLogRow]:
+        owned = [
+            r for r in self._fishing_log_row_list if r.fish_sniper_user_id == fish_sniper_user_id
+        ]
+        return sorted(owned, key=lambda r: (r.log_date, r.updated_at_utc), reverse=True)
+
+    def fetch_fishing_log_by_id_for_user_id(
+        self,
+        *,
+        log_id: UUID,
+        fish_sniper_user_id: UUID,
+    ) -> FishSniperFishingLogRow | None:
+        for row in self._fishing_log_row_list:
+            if row.log_id == log_id and row.fish_sniper_user_id == fish_sniper_user_id:
+                return row
+        return None
+
+    def update_fishing_log_for_user_id(
+        self,
+        *,
+        log_id: UUID,
+        fish_sniper_user_id: UUID,
+        log_date: date,
+        fishing_location: str,
+        fishing_scene: str,
+        target_species: str,
+        water_depth_m: float,
+        lure_type: str,
+        lure_color: str,
+        retrieve_speed: str,
+        caught_count: int,
+        weight_lb: float | None,
+        length_cm: float | None,
+        temperature_c: float,
+        wind_speed_ms: float,
+        pressure_hpa: int,
+        condition_code: str,
+        notes: str,
+        embedding: list[float] | None,
+        embedding_text_version: int,
+        reference_time_utc: datetime,
+    ) -> FishSniperFishingLogRow | None:
+        for index, row in enumerate(self._fishing_log_row_list):
+            if row.log_id == log_id and row.fish_sniper_user_id == fish_sniper_user_id:
+                updated = FishSniperFishingLogRow(
+                    log_id=row.log_id,
+                    fish_sniper_user_id=row.fish_sniper_user_id,
+                    log_date=log_date,
+                    fishing_location=fishing_location,
+                    fishing_scene=fishing_scene,
+                    target_species=target_species,
+                    water_depth_m=water_depth_m,
+                    lure_type=lure_type,
+                    lure_color=lure_color,
+                    retrieve_speed=retrieve_speed,
+                    caught_count=caught_count,
+                    weight_lb=weight_lb,
+                    length_cm=length_cm,
+                    temperature_c=temperature_c,
+                    wind_speed_ms=wind_speed_ms,
+                    pressure_hpa=pressure_hpa,
+                    condition_code=condition_code,
+                    notes=notes,
+                    embedding_status="done" if embedding is not None else "pending",
+                    embedding_text_version=embedding_text_version,
+                    embedding_attempt_count=row.embedding_attempt_count,
+                    created_at_utc=row.created_at_utc,
+                    updated_at_utc=reference_time_utc,
+                )
+                self._fishing_log_row_list[index] = updated
+                return updated
+        return None
+
+    def delete_fishing_log_for_user_id(
+        self,
+        *,
+        log_id: UUID,
+        fish_sniper_user_id: UUID,
+    ) -> bool:
+        for index, row in enumerate(self._fishing_log_row_list):
+            if row.log_id == log_id and row.fish_sniper_user_id == fish_sniper_user_id:
+                del self._fishing_log_row_list[index]
+                return True
+        return False
+
+    def fetch_fishing_logs_list_etag_fingerprint_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> str:
+        owned = [
+            r for r in self._fishing_log_row_list if r.fish_sniper_user_id == fish_sniper_user_id
+        ]
+        if not owned:
+            return "0:"
+        max_updated = max(r.updated_at_utc for r in owned)
+        return f"{len(owned)}:{max_updated.isoformat()}"
+
+    def fetch_fishing_log_etag_fingerprint_for_user_id(
+        self,
+        *,
+        log_id: UUID,
+        fish_sniper_user_id: UUID,
+    ) -> str | None:
+        row = self.fetch_fishing_log_by_id_for_user_id(
+            log_id=log_id,
+            fish_sniper_user_id=fish_sniper_user_id,
+        )
+        if row is None:
+            return None
+        return f"{row.log_id}:{row.updated_at_utc.isoformat()}"
+
+
+class FakeFishSniperEmbeddingClient(FishSniperEmbeddingClient):
+    """Configurable fake used by every backend test to avoid real OpenAI calls.
+
+    Default behaviour: return a fixed 1536-d vector. Tests that exercise the
+    transient-failure path inject a different fake (see
+    ``test_logs_api`` POST-OpenAI-fail case) by overriding the FastAPI
+    dependency directly.
+    """
+
+    def __init__(
+        self,
+        *,
+        vector: list[float] | None = None,
+        error_factory: Callable[[], Exception] | None = None,
+    ) -> None:
+        self._vector: list[float] = vector if vector is not None else [0.001] * 1536
+        self._error_factory = error_factory
+        self.call_count = 0
+
+    def embed(self, *, text: str) -> list[float]:
+        _ = text
+        self.call_count += 1
+        if self._error_factory is not None:
+            raise self._error_factory()
+        return list(self._vector)
+
 
 class RecordingTransactionalEmailSenderAdapter:
     """Captures OTP email sends for assertions."""
@@ -191,3 +393,10 @@ def reset_fish_sniper_backend_settings_cache(monkeypatch: pytest.MonkeyPatch) ->
     get_fish_sniper_backend_settings.cache_clear()
     yield
     get_fish_sniper_backend_settings.cache_clear()
+
+
+@pytest.fixture
+def fake_fish_sniper_embedding_client() -> FakeFishSniperEmbeddingClient:
+    """Default fake embedding client (returns a fixed 1536-d vector)."""
+
+    return FakeFishSniperEmbeddingClient()

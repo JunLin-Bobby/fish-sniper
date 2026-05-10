@@ -1,4 +1,4 @@
-"""LangGraph orchestration for P2 bass strategy (Step 3 RAG short-circuited)."""
+"""LangGraph for P2 bass strategy: RAG stub (Step 3), single structured Gemini JSON call."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from typing import Any, Literal
 from uuid import UUID
 
 from langgraph.graph import END, StateGraph
+from pydantic import ValidationError
 from typing_extensions import TypedDict
 
 from agent.fish_sniper_strategy_prompt_assembler import (
-    build_battle_plan_system_prompt_for_markdown_summary,
     build_general_best_practice_system_prompt_for_bass_strategy,
     build_shared_user_prompt_for_environmental_json_strategy,
 )
@@ -20,17 +20,14 @@ from agent.gemini_text_generation import (
     FishSniperGeminiInvocationError,
     generate_text_from_gemini_with_system_and_user_prompts,
 )
-from agent.json_payload_extraction import (
-    extract_first_json_object_dict_from_llm_text,
-    validate_non_empty_string_fields_exist,
-)
+from agent.json_payload_extraction import extract_first_json_object_dict_from_llm_text
 from agent.langfuse_observability import (
     build_langfuse_client_or_none,
     flush_langfuse_client_best_effort,
 )
-from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import FishSniperPersistencePort
 from schemas.agent_schemas import (
+    BassStrategyStructuredLlmOutputBody,
     GenerateBassStrategyFallbackResponseBody,
     GenerateBassStrategyRequestBody,
     GenerateBassStrategySuccessResponseBody,
@@ -79,18 +76,8 @@ class FishSniperStrategyGraphStateSchema(TypedDict, total=False):
     structured_json_valid: bool
     strategy_fallback: bool
     structured_strategy_parsed_dict: dict[str, Any]
-    battle_plan_summary_markdown: str
     success_response_body: dict[str, Any]
     fallback_response_body: dict[str, Any]
-
-_STRUCTURED_STRATEGY_JSON_FIELD_NAME_LIST = [
-    "lure_type",
-    "lure_color",
-    "retrieve_speed",
-    "target_zone",
-    "time_window",
-    "confidence_note",
-]
 
 
 def _read_terminal_http_status_from_state(state: FishSniperStrategyGraphState) -> int | None:
@@ -105,9 +92,7 @@ def node_load_user_region_and_open_weather_map_snapshot(
     if _read_terminal_http_status_from_state(state) is not None:
         return {}
 
-    fish_sniper_user_id: UUID = state["fish_sniper_user_id"]
     request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
-    persistence: FishSniperPersistencePort = state["persistence_port"]
     settings: FishSniperBackendSettings = state["fish_sniper_backend_settings"]
     weather_cache: WeatherSnapshotCachePort = state["weather_snapshot_cache_port"]
     reference_time_utc: datetime = state["reference_time_utc"]
@@ -121,23 +106,7 @@ def node_load_user_region_and_open_weather_map_snapshot(
         else nullcontext()
     )
     with span_cm:
-        try:
-            preferences_row = persistence.fetch_user_preferences_row_for_user_id(
-                fish_sniper_user_id=fish_sniper_user_id,
-            )
-        except FishSniperPersistenceUnavailableError:
-            return {
-                "terminal_http_status": 503,
-                "terminal_error_envelope": {"error": "Database is temporarily unavailable"},
-            }
-
-        if preferences_row is None or not preferences_row.profile_region_display_name.strip():
-            return {
-                "terminal_http_status": 400,
-                "terminal_error_envelope": {"error": "User region is not configured"},
-            }
-
-        region = preferences_row.profile_region_display_name.strip()
+        region = request_body.region.strip()
         try:
             snapshot = fetch_or_refresh_cached_current_weather_snapshot_for_region(
                 profile_region_display_name=region,
@@ -171,7 +140,7 @@ def node_load_user_region_and_open_weather_map_snapshot(
 def node_short_circuit_personal_log_retrieval_for_p2(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
-    """Step 3 stub: Pinecone/RAG is not wired in P2."""
+    """Step 3 stub: pgvector RAG is not wired until P4 Part 2."""
 
     if _read_terminal_http_status_from_state(state) is not None:
         return {}
@@ -208,7 +177,9 @@ def node_assemble_prompts_for_general_branch(
     )
     with span_cm:
         request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
-        system_prompt = build_general_best_practice_system_prompt_for_bass_strategy()
+        system_prompt = build_general_best_practice_system_prompt_for_bass_strategy(
+            target_species=request_body.target_species,
+        )
         user_prompt = build_shared_user_prompt_for_environmental_json_strategy(
             region=state["profile_region_display_name"],
             fishing_location=request_body.fishing_location.strip(),
@@ -218,6 +189,7 @@ def node_assemble_prompts_for_general_branch(
             pressure_hpa=state["pressure_hectopascals"],
             wind_speed_ms=state["wind_speed_meters_per_second"],
             condition_code=state["condition_code"],
+            target_species=request_body.target_species,
         )
         return {
             "structured_strategy_system_prompt": system_prompt,
@@ -244,11 +216,30 @@ def node_invoke_gemini_for_structured_json_strategy(
         system_prompt = state["structured_strategy_system_prompt"]
         user_prompt = state["structured_strategy_user_prompt"]
         try:
-            raw_text = generate_text_from_gemini_with_system_and_user_prompts(
-                fish_sniper_backend_settings=settings,
-                system_instruction=system_prompt,
-                user_prompt=user_prompt,
-            )
+            if langfuse_client is not None:
+                with langfuse_client.start_as_current_generation(
+                    name="gemini_structured_strategy",
+                    model=settings.gemini_model,
+                    model_parameters={"temperature": 0.4},
+                    input={
+                        "system_instruction_chars": len(system_prompt),
+                        "user_prompt_chars": len(user_prompt),
+                        "system_instruction": system_prompt,
+                        "user_prompt": user_prompt,
+                    },
+                ) as structured_generation:
+                    raw_text = generate_text_from_gemini_with_system_and_user_prompts(
+                        fish_sniper_backend_settings=settings,
+                        system_instruction=system_prompt,
+                        user_prompt=user_prompt,
+                    )
+                    structured_generation.update(output=raw_text)
+            else:
+                raw_text = generate_text_from_gemini_with_system_and_user_prompts(
+                    fish_sniper_backend_settings=settings,
+                    system_instruction=system_prompt,
+                    user_prompt=user_prompt,
+                )
         except FishSniperGeminiInvocationError:
             logger.exception("Gemini structured strategy call failed")
             return {
@@ -256,19 +247,6 @@ def node_invoke_gemini_for_structured_json_strategy(
                 "terminal_error_envelope": {"error": "Strategy model is temporarily unavailable"},
                 "raw_structured_strategy_llm_output": "",
             }
-
-        gen_cm = (
-            langfuse_client.start_as_current_generation(
-                name="gemini_structured_strategy",
-                model=settings.gemini_model,
-                input=f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}",
-                output=raw_text,
-            )
-            if langfuse_client is not None
-            else nullcontext()
-        )
-        with gen_cm:
-            pass
 
         return {"raw_structured_strategy_llm_output": raw_text}
 
@@ -292,17 +270,14 @@ def node_parse_and_validate_structured_json_strategy(
         retry_count = int(state.get("structured_json_retry_count") or 0)
         try:
             parsed = extract_first_json_object_dict_from_llm_text(raw_llm_text=raw_text)
-            validate_non_empty_string_fields_exist(
-                parsed_json_object=parsed,
-                required_field_name_list=_STRUCTURED_STRATEGY_JSON_FIELD_NAME_LIST,
-            )
+            validated = BassStrategyStructuredLlmOutputBody.model_validate(parsed)
             return {
                 "structured_json_retry_count": retry_count,
-                "structured_strategy_parsed_dict": parsed,
+                "structured_strategy_parsed_dict": validated.model_dump(mode="python"),
                 "structured_json_valid": True,
                 "strategy_fallback": False,
             }
-        except ValueError as exc:
+        except (ValueError, ValidationError) as exc:
             logger.info("Structured JSON validation failed (attempt=%s): %s", retry_count + 1, exc)
             next_retry = retry_count + 1
             if next_retry >= 2:
@@ -322,7 +297,7 @@ def route_after_structured_json_validation(
     state: FishSniperStrategyGraphState,
 ) -> Literal[
     "retry_structured_generation",
-    "battle_plan",
+    "finalize_success",
     "fallback_done",
     "terminal_stop",
 ]:
@@ -331,7 +306,7 @@ def route_after_structured_json_validation(
     if state.get("strategy_fallback") is True:
         return "fallback_done"
     if state.get("structured_json_valid") is True:
-        return "battle_plan"
+        return "finalize_success"
     return "retry_structured_generation"
 
 
@@ -352,69 +327,6 @@ def node_no_op_pipeline_terminal_stop(
     return {}
 
 
-def node_invoke_gemini_for_battle_plan_markdown(
-    state: FishSniperStrategyGraphState,
-) -> FishSniperStrategyGraphState:
-    """Step 7a: second Gemini call for markdown battle plan."""
-
-    if _read_terminal_http_status_from_state(state) is not None:
-        return {}
-
-    settings: FishSniperBackendSettings = state["fish_sniper_backend_settings"]
-    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
-    parsed = state["structured_strategy_parsed_dict"]
-
-    langfuse_client = state.get("langfuse_client")
-    span_cm = (
-        langfuse_client.start_as_current_span(name="format_final_response", metadata={"step": "7"})
-        if langfuse_client is not None
-        else nullcontext()
-    )
-    with span_cm:
-        system_prompt = build_battle_plan_system_prompt_for_markdown_summary(
-            fishing_location=request_body.fishing_location.strip(),
-            temperature_c=state["temperature_celsius"],
-            condition_code=state["condition_code"],
-            wind_speed_ms=state["wind_speed_meters_per_second"],
-            fishing_scene=request_body.fishing_scene.strip(),
-            water_depth_m=request_body.water_depth_m,
-            lure_type=str(parsed["lure_type"]),
-            lure_color=str(parsed["lure_color"]),
-            retrieve_speed=str(parsed["retrieve_speed"]),
-            target_zone=str(parsed["target_zone"]),
-            time_window=str(parsed["time_window"]),
-        )
-        user_prompt = (
-            "Write the battle plan now. "
-            "Remember: markdown headings, four sections, English, no emoji."
-        )
-        try:
-            battle_plan_markdown = generate_text_from_gemini_with_system_and_user_prompts(
-                fish_sniper_backend_settings=settings,
-                system_instruction=system_prompt,
-                user_prompt=user_prompt,
-            )
-        except FishSniperGeminiInvocationError:
-            battle_plan_markdown = (
-                "Battle plan could not be generated; use the structured fields above."
-            )
-
-        gen_cm = (
-            langfuse_client.start_as_current_generation(
-                name="gemini_battle_plan_summary",
-                model=settings.gemini_model,
-                input=f"SYSTEM:\n{system_prompt}\n\nUSER:\n{user_prompt}",
-                output=battle_plan_markdown,
-            )
-            if langfuse_client is not None
-            else nullcontext()
-        )
-        with gen_cm:
-            pass
-
-        return {"battle_plan_summary_markdown": battle_plan_markdown}
-
-
 def node_finalize_success_response_model(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
@@ -423,16 +335,14 @@ def node_finalize_success_response_model(
     if _read_terminal_http_status_from_state(state) is not None:
         return {}
 
-    parsed = state["structured_strategy_parsed_dict"]
+    llm_payload = BassStrategyStructuredLlmOutputBody.model_validate(
+        state["structured_strategy_parsed_dict"],
+    )
     generated_at_utc = datetime.now(tz=UTC)
     success = GenerateBassStrategySuccessResponseBody(
-        lure_type=str(parsed["lure_type"]),
-        lure_color=str(parsed["lure_color"]),
-        retrieve_speed=str(parsed["retrieve_speed"]),
-        target_zone=str(parsed["target_zone"]),
-        time_window=str(parsed["time_window"]),
-        confidence_note=str(parsed["confidence_note"]),
-        battle_plan_summary=str(state.get("battle_plan_summary_markdown") or ""),
+        fish_state=llm_payload.fish_state,
+        recommendations=llm_payload.recommendations,
+        confidence_note=llm_payload.confidence_note,
         weather_snapshot=WeatherSnapshotPayload(
             temperature_c=state["temperature_celsius"],
             pressure_hpa=state["pressure_hectopascals"],
@@ -467,7 +377,7 @@ def node_finalize_fallback_response_model(
 
 
 def build_fish_sniper_strategy_state_graph() -> StateGraph:
-    """Wire LangGraph nodes and conditional retry routing for Step 5–6."""
+    """Wire LangGraph nodes and conditional retry routing for Step 5–6 (single Gemini JSON call)."""
 
     graph_builder = StateGraph(FishSniperStrategyGraphStateSchema)
     graph_builder.add_node(
@@ -479,7 +389,6 @@ def build_fish_sniper_strategy_state_graph() -> StateGraph:
     graph_builder.add_node(
         "validate_structured_json", node_parse_and_validate_structured_json_strategy
     )
-    graph_builder.add_node("battle_plan_generation", node_invoke_gemini_for_battle_plan_markdown)
     graph_builder.add_node("finalize_success", node_finalize_success_response_model)
     graph_builder.add_node("finalize_fallback", node_finalize_fallback_response_model)
     graph_builder.add_node("pipeline_terminal_stop", node_no_op_pipeline_terminal_stop)
@@ -501,12 +410,11 @@ def build_fish_sniper_strategy_state_graph() -> StateGraph:
         route_after_structured_json_validation,
         {
             "retry_structured_generation": "structured_generation",
-            "battle_plan": "battle_plan_generation",
+            "finalize_success": "finalize_success",
             "fallback_done": "finalize_fallback",
             "terminal_stop": "pipeline_terminal_stop",
         },
     )
-    graph_builder.add_edge("battle_plan_generation", "finalize_success")
     graph_builder.add_edge("finalize_success", END)
     graph_builder.add_edge("finalize_fallback", END)
     graph_builder.add_edge("pipeline_terminal_stop", END)
@@ -514,6 +422,49 @@ def build_fish_sniper_strategy_state_graph() -> StateGraph:
 
 
 _compiled_fish_sniper_strategy_graph = build_fish_sniper_strategy_state_graph().compile()
+
+
+def _fish_sniper_langfuse_trace_output_summary_from_final_state(
+    *,
+    final_state: FishSniperStrategyGraphState,
+) -> dict[str, Any]:
+    """Compact trace-level output for Langfuse UI (avoid huge payloads)."""
+
+    terminal_http_status_raw = final_state.get("terminal_http_status")
+    if isinstance(terminal_http_status_raw, int):
+        envelope = final_state.get("terminal_error_envelope")
+        detail: Any = envelope if isinstance(envelope, dict) else {"error": "Request failed"}
+        return {
+            "outcome": "terminal_error",
+            "http_status": terminal_http_status_raw,
+            "detail": detail,
+        }
+
+    success_raw = final_state.get("success_response_body")
+    if isinstance(success_raw, dict):
+        body = success_raw
+        recs = body.get("recommendations")
+        rec_count = len(recs) if isinstance(recs, list) else 0
+        fish_state = body.get("fish_state")
+        return {
+            "outcome": "success",
+            "fallback": False,
+            "recommendation_count": rec_count,
+            "fish_state_chars": len(str(fish_state)) if fish_state is not None else 0,
+            "rag_logs_used": body.get("rag_logs_used"),
+            "generated_at": body.get("generated_at"),
+        }
+
+    fallback_raw = final_state.get("fallback_response_body")
+    if isinstance(fallback_raw, dict):
+        return {
+            "outcome": "fallback",
+            "fallback": True,
+            "message": fallback_raw.get("message"),
+            "generated_at": fallback_raw.get("generated_at"),
+        }
+
+    return {"outcome": "unknown"}
 
 
 def invoke_fish_sniper_strategy_graph(
@@ -543,7 +494,11 @@ def invoke_fish_sniper_strategy_graph(
     root_cm = (
         langfuse_client.start_as_current_span(
             name="fish_sniper_strategy_trace_root",
-            metadata={"user_id": str(fish_sniper_user_id)},
+            input=parsed_request_body.model_dump(mode="json"),
+            metadata={
+                "user_id": str(fish_sniper_user_id),
+                "pipeline": "p2_bass_strategy_single_llm_json",
+            },
         )
         if langfuse_client is not None
         else nullcontext()
@@ -551,6 +506,16 @@ def invoke_fish_sniper_strategy_graph(
     try:
         with root_cm:
             final_state = _compiled_fish_sniper_strategy_graph.invoke(initial_state)
+            if langfuse_client is not None:
+                langfuse_client.update_current_trace(
+                    name="fish_sniper_strategy",
+                    user_id=str(fish_sniper_user_id),
+                    input=parsed_request_body.model_dump(mode="json"),
+                    output=_fish_sniper_langfuse_trace_output_summary_from_final_state(
+                        final_state=final_state,
+                    ),
+                    tags=["p2", "bass-strategy"],
+                )
     finally:
         flush_langfuse_client_best_effort(langfuse_client=langfuse_client)
 

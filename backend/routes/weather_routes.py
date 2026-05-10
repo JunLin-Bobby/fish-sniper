@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from deps import (
     FishSniperPersistenceDep,
@@ -41,9 +41,9 @@ def _map_snapshot_to_response_body(
     "/current",
     summary="Fetch current weather for the signed-in user's saved region",
     description=(
-        "Reads `user_preferences.region`, returns a cached OpenWeatherMap snapshot "
-        "(30-minute TTL), or refreshes from OpenWeatherMap when the cache entry is stale "
-        "or missing."
+        "Returns a cached OpenWeatherMap snapshot (30-minute TTL), or refreshes when stale. "
+        "If the optional `region` query is provided, it is used as the lookup label; "
+        "otherwise `user_preferences.region` must be configured."
     ),
     response_model=CurrentWeatherResponseBody,
     response_description="Metric weather snapshot including FishSniper condition_code mapping.",
@@ -63,28 +63,36 @@ def handle_get_current_weather_for_signed_in_user_request(
     fish_sniper_persistence: FishSniperPersistenceDep,
     fish_sniper_backend_settings: FishSniperSettingsDep,
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
+    region: str | None = Query(
+        default=None,
+        description="Optional override region label for this fetch (skips saved profile when set).",
+    ),
 ) -> CurrentWeatherResponseBody:
     _ = request
     reference_time_utc = reference_time_utc_callable()
-    try:
-        preferences_row = fish_sniper_persistence.fetch_user_preferences_row_for_user_id(
-            fish_sniper_user_id=fish_sniper_user_id,
-        )
-    except FishSniperPersistenceUnavailableError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error": "Database is temporarily unavailable"},
-        ) from exc
+    if region is not None and region.strip():
+        region_label = region.strip()
+    else:
+        try:
+            preferences_row = fish_sniper_persistence.fetch_user_preferences_row_for_user_id(
+                fish_sniper_user_id=fish_sniper_user_id,
+            )
+        except FishSniperPersistenceUnavailableError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"error": "Database is temporarily unavailable"},
+            ) from exc
 
-    if preferences_row is None or not preferences_row.profile_region_display_name.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "User region is not configured"},
-        )
+        if preferences_row is None or not preferences_row.profile_region_display_name.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "User region is not configured"},
+            )
+        region_label = preferences_row.profile_region_display_name
 
     try:
         snapshot = fetch_or_refresh_cached_current_weather_snapshot_for_region(
-            profile_region_display_name=preferences_row.profile_region_display_name,
+            profile_region_display_name=region_label,
             fish_sniper_backend_settings=fish_sniper_backend_settings,
             weather_snapshot_cache_port=get_fish_sniper_weather_snapshot_cache_port(),
             reference_time_utc=reference_time_utc,

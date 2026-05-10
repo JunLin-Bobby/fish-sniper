@@ -6,7 +6,7 @@ import { useFishSniperAuthSessionState } from './hooks/useFishSniperAuthSessionS
 import { useFishSniperUserPreferencesRemoteState } from './hooks/useFishSniperUserPreferencesRemoteState.ts'
 import { FishSniperSignedInAppShell } from './layout/FishSniperSignedInAppShell.tsx'
 import { FishSniperEmailOtpSignInPage } from './pages/FishSniperEmailOtpSignInPage.tsx'
-import { FishSniperMyLogsPlaceholderPage } from './pages/FishSniperMyLogsPlaceholderPage.tsx'
+import { FishSniperMyLogsPage } from './pages/FishSniperMyLogsPage.tsx'
 import { FishSniperOnboardingRegionPage } from './pages/FishSniperOnboardingRegionPage.tsx'
 import { FishSniperStrategyPage } from './pages/FishSniperStrategyPage.tsx'
 
@@ -100,7 +100,7 @@ export default function App() {
       >
         <Route index element={<Navigate to="/strategy" replace />} />
         <Route path="strategy" element={<FishSniperStrategyPage />} />
-        <Route path="logs" element={<FishSniperMyLogsPlaceholderPage />} />
+        <Route path="logs" element={<FishSniperMyLogsPage />} />
       </Route>
     </Routes>
   )

@@ -26,9 +26,8 @@ router = APIRouter()
     "/strategy",
     summary="Generate a bass lure strategy via LangGraph and Gemini",
     description=(
-        "Runs the FishSniper seven-step agent pipeline with Step 3 RAG short-circuited in P2. "
-        "Requires a configured `user_preferences.region` for automatic weather, unless "
-        "`manual_weather` is supplied when OpenWeatherMap is unavailable."
+        "Runs the FishSniper agent pipeline (weather, RAG stub, single Gemini JSON strategy). "
+        "Send `region` for OpenWeatherMap; use `manual_weather` when OWM is unavailable."
     ),
     responses={
         status.HTTP_200_OK: {

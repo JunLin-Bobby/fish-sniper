@@ -19,13 +19,13 @@ def build_langfuse_client_or_none(
     secret_key = fish_sniper_backend_settings.langfuse_secret_key
     if not public_key or not secret_key:
         return None
-    host = fish_sniper_backend_settings.langfuse_host
+    base_url = fish_sniper_backend_settings.langfuse_base_url
     kwargs: dict[str, Any] = {
         "public_key": public_key,
         "secret_key": secret_key,
     }
-    if host:
-        kwargs["host"] = host
+    if base_url:
+        kwargs["host"] = base_url.rstrip("/")
     return Langfuse(**kwargs)
 
 
