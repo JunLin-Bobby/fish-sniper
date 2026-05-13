@@ -322,7 +322,7 @@ class SupabaseFishSniperPersistenceAdapter:
     ) -> UUID:
         # The atomic "row + vector + status" write happens inside the RPC
         # `fish_sniper_insert_log_with_embedding`
-        # (see scripts/supabase_p4_part1_log_embeddings.sql).
+        # (see scripts/supabase_reset_full_environment.sql).
         try:
             rpc_payload: dict[str, Any] = {
                 "p_user_id": str(fish_sniper_user_id),

@@ -145,6 +145,24 @@ class FishSniperBackendSettings(BaseSettings):
         description="Synthetic email key for rate limits when SKIP_AUTH is enabled.",
     )
 
+    google_oauth_client_id: str | None = Field(
+        default=None,
+        description="Google Cloud OAuth 2.0 Client ID for the FishSniper sign-in flow.",
+    )
+
+    google_oauth_client_secret: str | None = Field(
+        default=None,
+        description="Google Cloud OAuth 2.0 Client Secret (server-side only).",
+    )
+
+    google_oauth_allowed_redirect_uris: str = Field(
+        default="http://localhost:5173/auth/google/callback",
+        description=(
+            "Comma-separated whitelist of redirect URIs accepted by the "
+            "Google OAuth exchange endpoint. Must match Google Cloud Console exactly."
+        ),
+    )
+
 
 @lru_cache
 def get_fish_sniper_backend_settings() -> FishSniperBackendSettings:

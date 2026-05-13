@@ -1,17 +1,24 @@
 -- =============================================================================
--- FishSniper — FULL DATABASE RESET (schema + RPC + indexes)
+-- FishSniper — FULL DATABASE RESET (schema + RPC + indexes + Data API GRANTs)
 -- =============================================================================
--- 用途：在 **任何** 舊 schema 狀態下，把 Supabase / Postgres 裡 FishSniper 相關物件
---       全部拆掉後，依「目前 repo 唯一真相」重建。適合：
+-- 用途：FishSniper 的 **唯一** DB source of truth（self-contained，無需搭配其他 SQL 檔）。
+--       在 **任何** 舊 schema 狀態下，把 Supabase / Postgres 裡 FishSniper 相關物件
+--       全部拆掉後，依本檔重建。適合：
 --         * 本機 / staging 一鍵洗白
 --         * 從早期只有半套 `fishing_logs` 的 DB 升級失敗時，直接重來
 --         * CI 或新同事 clone 專案後第一次對準 DB
+--         * 新開的 Supabase project（2026-05-30 起新預設）一次到位
 --
 -- 警告：**會刪除** `users`、`otp_codes`、`user_preferences`、`fishing_logs` 內
 --       所有資料（含 dev seed）。不要在 production 共用庫上未備份就執行。
 --
 -- 不包含：`DROP EXTENSION vector`（同一 instance 若還有其他專案用 pgvector 會誤傷）。
 --       本腳本只 `CREATE EXTENSION IF NOT EXISTS vector`。
+--
+-- Data API GRANT（PHASE 4b / 5b）：Supabase 自 2026-05-30 起，新 project 的 `public.*`
+--       不再預設暴露給 PostgREST / supabase-js；2026-10-30 起套用至所有既有 project。
+--       本檔已 explicit `GRANT ... TO service_role`，backend（用 SUPABASE_SERVICE_ROLE_KEY）
+--       仍可透過 supabase-py 正常讀寫與呼叫 RPC。
 --
 -- 執行方式：Supabase Dashboard → SQL Editor → 整檔貼上 → Run 一次即可。
 -- 執行後（可選）：`scripts/seed_p3.sql` 插入 dev 使用者 + 範例日誌（需先有本腳本 schema）。
@@ -21,7 +28,7 @@
 -- PHASE 1 — TEARDOWN（順序：先拆依賴 fishing_logs 的函式，再拆表）
 -- ---------------------------------------------------------------------------
 
--- RPC（簽名須與 `supabase_p4_part1_log_embeddings.sql` 完全一致，否則 DROP 不生效）
+-- RPC（簽名須與下方 CREATE FUNCTION 完全一致，否則 DROP 不生效）
 DROP FUNCTION IF EXISTS public.fish_sniper_update_log_with_embedding(
   uuid, uuid, date, text, text, text, double precision, text, text, text, integer,
   double precision, double precision, double precision, double precision, integer,
@@ -54,7 +61,7 @@ DROP TABLE IF EXISTS public.users CASCADE;
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------------------------------------------------------------------------
--- PHASE 3 — P1 核心表（與 `supabase_p1_schema.sql` 語意一致；此處為 CREATE 非 IF）
+-- PHASE 3 — P1 核心表（users / otp_codes / user_preferences；CREATE 非 IF）
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE public.users (
@@ -146,7 +153,25 @@ CREATE TRIGGER trg_fishing_logs_set_updated_at
 ALTER TABLE public.fishing_logs ENABLE ROW LEVEL SECURITY;
 
 -- ---------------------------------------------------------------------------
--- PHASE 5 — RPC（與 `supabase_p4_part1_log_embeddings.sql` 相同；供 PostgREST client.rpc）
+-- PHASE 4b — Data API GRANTS（service_role only）
+-- ---------------------------------------------------------------------------
+-- 背景：Supabase 自 2026-05-30 起，新 project 的 `public.*` 表不再預設暴露給
+-- PostgREST / supabase-js；2026-10-30 起套用至所有既有 project。少了 GRANT，
+-- backend 透過 supabase-py 的呼叫會收到 `42501 permission denied`。
+--
+-- 為何只授權 `service_role`：
+--   * Backend 是唯一的 Data API caller（FastAPI → supabase-py，使用 SERVICE_ROLE_KEY）。
+--   * `service_role` 預設 bypass RLS；`fishing_logs` 已 ENABLE RLS 維持 defense-in-depth。
+--   * Frontend 不直接連 Supabase，因此暫不需 `anon` / `authenticated` GRANT。
+--   * 將來若新增 frontend 直連場景，再補對應角色 + RLS POLICY。
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.users            TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.otp_codes        TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_preferences TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.fishing_logs     TO service_role;
+
+-- ---------------------------------------------------------------------------
+-- PHASE 5 — P4 RPC（insert/update with embedding + similarity search；供 PostgREST client.rpc）
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.fish_sniper_insert_log_with_embedding(
@@ -263,7 +288,7 @@ BEGIN
 END;
 $$;
 
--- P4 Part 2 — similarity search (same body as `scripts/supabase_p4_part2_rag_search.sql`)
+-- P4 Part 2 — similarity search RPC（user_id + target_species filter，cosine ASC + id ASC tie-break）
 CREATE OR REPLACE FUNCTION public.fish_sniper_find_similar_fishing_log(
   p_user_id         uuid,
   p_target_species  text,
@@ -292,6 +317,29 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- PHASE 5b — RPC EXECUTE GRANTS（service_role only）
+-- ---------------------------------------------------------------------------
+-- supabase-py 的 `client.rpc(...)` 走 PostgREST；雖然這三支 RPC 是 SECURITY DEFINER，
+-- PostgREST 仍會先檢查 caller role 對 function 的 EXECUTE 權限。簽名必須與上方
+-- CREATE FUNCTION 的參數列完全一致（順序與型別）。
+
+GRANT EXECUTE ON FUNCTION public.fish_sniper_insert_log_with_embedding(
+  uuid, date, text, text, text, double precision, text, text, text, integer,
+  double precision, double precision, double precision, double precision, integer,
+  text, text, text, smallint, timestamptz
+) TO service_role;
+
+GRANT EXECUTE ON FUNCTION public.fish_sniper_update_log_with_embedding(
+  uuid, uuid, date, text, text, text, double precision, text, text, text, integer,
+  double precision, double precision, double precision, double precision, integer,
+  text, text, text, smallint, timestamptz
+) TO service_role;
+
+GRANT EXECUTE ON FUNCTION public.fish_sniper_find_similar_fishing_log(
+  uuid, text, text, integer
+) TO service_role;
+
+-- ---------------------------------------------------------------------------
 -- PHASE 6 — 驗證（可於 SQL Editor 檢視結果）
 -- ---------------------------------------------------------------------------
 -- SELECT column_name, data_type, is_nullable
@@ -302,5 +350,21 @@ $$;
 -- SELECT proname FROM pg_proc
 --  WHERE proname IN (
 --    'fish_sniper_insert_log_with_embedding',
---    'fish_sniper_update_log_with_embedding'
+--    'fish_sniper_update_log_with_embedding',
+--    'fish_sniper_find_similar_fishing_log'
 --  );
+--
+-- -- 確認 service_role 已拿到表的 DML 權限
+-- SELECT table_name, privilege_type
+--   FROM information_schema.role_table_grants
+--  WHERE grantee = 'service_role'
+--    AND table_schema = 'public'
+--    AND table_name IN ('users','otp_codes','user_preferences','fishing_logs')
+--  ORDER BY table_name, privilege_type;
+--
+-- -- 確認 service_role 已拿到 RPC 的 EXECUTE 權限
+-- SELECT routine_name, privilege_type
+--   FROM information_schema.role_routine_grants
+--  WHERE grantee = 'service_role'
+--    AND specific_schema = 'public'
+--    AND routine_name LIKE 'fish_sniper_%';

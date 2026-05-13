@@ -29,7 +29,8 @@ router = APIRouter()
     description=(
         "Runs the FishSniper agent pipeline (weather, optional RAG over fishing logs, "
         "single Gemini JSON strategy). "
-        "Send `region` for OpenWeatherMap; use `manual_weather` when OWM is unavailable."
+        "Send `region` for OpenWeatherMap; provide `manual_weather` to override OWM "
+        "(e.g. what-if analysis or when OWM is unavailable)."
     ),
     responses={
         status.HTTP_200_OK: {

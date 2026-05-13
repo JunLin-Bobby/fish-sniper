@@ -49,6 +49,7 @@ _auth_route_moving_window_rate_limiter = MovingWindowRateLimiter(_auth_route_rat
 
 _send_otp_per_email_rate_limit_item = parse("30/hour")
 _verify_otp_per_email_rate_limit_item = parse("60/minute")
+_google_oauth_exchange_per_ip_rate_limit_item = parse("30/minute")
 
 
 def fish_sniper_jwt_email_slowapi_key_func(request: Request) -> str:
@@ -164,6 +165,25 @@ def enforce_verify_otp_email_rate_limit_or_raise_429(
     bucket_key = f"verify_otp:{normalized_email_address}"
     if not _auth_route_moving_window_rate_limiter.hit(
         _verify_otp_per_email_rate_limit_item, bucket_key
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": "Too many requests"},
+        )
+
+
+def enforce_google_oauth_exchange_ip_rate_limit_or_raise_429(
+    *,
+    fish_sniper_backend_settings: FishSniperBackendSettings,
+    client_ip_address: str,
+) -> None:
+    """Per-IP cap for the Google OAuth exchange endpoint (we have no email pre-token)."""
+
+    if not fish_sniper_backend_settings.rate_limit_enabled:
+        return
+    bucket_key = f"google_oauth_exchange:{client_ip_address}"
+    if not _auth_route_moving_window_rate_limiter.hit(
+        _google_oauth_exchange_per_ip_rate_limit_item, bucket_key
     ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

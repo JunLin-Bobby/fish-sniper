@@ -4,22 +4,35 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
+from auth.google_oauth_service import (
+    GoogleIdTokenInvalidError,
+    GoogleOAuthCodeRejectedError,
+    GoogleOAuthExchangeConfigurationError,
+    GoogleOAuthExchangeEmailNotVerifiedError,
+    GoogleOAuthExchangeRedirectUriRejectedError,
+    GoogleOAuthIdentityServiceUnavailableError,
+    perform_google_oauth_exchange_for_fish_sniper_user,
+)
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
 from deps import (
     FishSniperPersistenceDep,
     FishSniperSettingsDep,
+    GoogleJwksKeyResolverDep,
+    GoogleOAuthTokenExchangeCallableDep,
     OtpCodeGeneratorDep,
     ReferenceTimeUtcCallableDep,
     TransactionalEmailSenderDep,
 )
 from persistence.errors import FishSniperPersistenceUnavailableError
 from rate_limiting import (
+    enforce_google_oauth_exchange_ip_rate_limit_or_raise_429,
     enforce_send_otp_email_rate_limit_or_raise_429,
     enforce_verify_otp_email_rate_limit_or_raise_429,
 )
 from schemas.auth_schemas import (
+    GoogleOAuthExchangeRequestBody,
     OtpErrorResponseBody,
     SendEmailOtpRequestBody,
     SendEmailOtpResponseBody,
@@ -182,3 +195,106 @@ def handle_verify_email_otp_request(
         ) from exc
 
     return VerifyEmailOtpResponseBody(access_token=access_token, is_new_user=is_new_user)
+
+
+@router.post(
+    "/google/exchange",
+    summary="Exchange a Google OAuth authorization code for a FishSniper JWT",
+    description=(
+        "Accepts the `code` + PKCE `code_verifier` from the SPA's Google callback, "
+        "verifies the resulting Google `id_token`, and returns a FishSniper JWT that "
+        "is interchangeable with the JWT issued by `/auth/verify-otp`."
+    ),
+    response_model=VerifyEmailOtpResponseBody,
+    response_description="Returns a FishSniper JWT and whether a new users row was created.",
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "model": OtpErrorResponseBody,
+            "description": "Missing fields or redirect_uri not in whitelist.",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "model": OtpErrorResponseBody,
+            "description": "Google rejected the code or the id_token failed verification.",
+        },
+        status.HTTP_403_FORBIDDEN: {
+            "model": OtpErrorResponseBody,
+            "description": "Google account email is not verified.",
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "model": OtpErrorResponseBody,
+            "description": "Per-IP rate limit exceeded for the Google exchange endpoint.",
+        },
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "model": OtpErrorResponseBody,
+            "description": "Backend is missing required Google OAuth configuration.",
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "model": OtpErrorResponseBody,
+            "description": "Google identity service was unreachable or returned 5xx.",
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": OtpErrorResponseBody,
+            "description": "Database is temporarily unavailable.",
+        },
+    },
+)
+def handle_google_oauth_exchange_request(
+    request: Request,
+    request_body: GoogleOAuthExchangeRequestBody,
+    fish_sniper_persistence: FishSniperPersistenceDep,
+    fish_sniper_backend_settings: FishSniperSettingsDep,
+    reference_time_utc_callable: ReferenceTimeUtcCallableDep,
+    google_oauth_token_exchange_callable: GoogleOAuthTokenExchangeCallableDep,
+    google_jwks_key_resolver: GoogleJwksKeyResolverDep,
+) -> VerifyEmailOtpResponseBody:
+    enforce_google_oauth_exchange_ip_rate_limit_or_raise_429(
+        fish_sniper_backend_settings=fish_sniper_backend_settings,
+        client_ip_address=request.client.host if request.client else "__no_client__",
+    )
+    reference_time_utc = reference_time_utc_callable()
+    try:
+        return perform_google_oauth_exchange_for_fish_sniper_user(
+            authorization_code=request_body.code,
+            pkce_code_verifier=request_body.code_verifier,
+            redirect_uri=request_body.redirect_uri,
+            fish_sniper_backend_settings=fish_sniper_backend_settings,
+            fish_sniper_persistence=fish_sniper_persistence,
+            reference_time_utc=reference_time_utc,
+            google_oauth_token_exchange_callable=google_oauth_token_exchange_callable,
+            google_jwks_key_resolver=google_jwks_key_resolver,
+        )
+    except GoogleOAuthExchangeConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "Google OAuth is not configured"},
+        ) from exc
+    except GoogleOAuthExchangeRedirectUriRejectedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "Invalid Google OAuth exchange request"},
+        ) from exc
+    except GoogleOAuthCodeRejectedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Google authorization rejected"},
+        ) from exc
+    except GoogleIdTokenInvalidError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "Google authorization rejected"},
+        ) from exc
+    except GoogleOAuthExchangeEmailNotVerifiedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Google account email is not verified"},
+        ) from exc
+    except GoogleOAuthIdentityServiceUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={"error": "Google identity service unavailable"},
+        ) from exc
+    except FishSniperPersistenceUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"error": "Database is temporarily unavailable"},
+        ) from exc

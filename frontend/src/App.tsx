@@ -1,14 +1,32 @@
 import { useMemo } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
 
 import { readFishSniperApiBaseUrlFromPublicEnv } from './config/readFishSniperPublicEnv.ts'
 import { useFishSniperAuthSessionState } from './hooks/useFishSniperAuthSessionState.ts'
 import { useFishSniperUserPreferencesRemoteState } from './hooks/useFishSniperUserPreferencesRemoteState.ts'
 import { FishSniperSignedInAppShell } from './layout/FishSniperSignedInAppShell.tsx'
 import { FishSniperEmailOtpSignInPage } from './pages/FishSniperEmailOtpSignInPage.tsx'
+import { FishSniperGoogleOAuthCallbackPage } from './pages/FishSniperGoogleOAuthCallbackPage.tsx'
 import { FishSniperMyLogsPage } from './pages/FishSniperMyLogsPage.tsx'
 import { FishSniperOnboardingRegionPage } from './pages/FishSniperOnboardingRegionPage.tsx'
 import { FishSniperStrategyPage } from './pages/FishSniperStrategyPage.tsx'
+
+function FishSniperGoogleOAuthCallbackRoute(options: {
+  apiBaseUrl: string
+  persistAccessTokenJwt: (accessTokenJwt: string) => void
+}) {
+  const navigate = useNavigate()
+  return (
+    <FishSniperGoogleOAuthCallbackPage
+      apiBaseUrl={options.apiBaseUrl}
+      onAuthenticatedWithAccessToken={(accessTokenJwt) => {
+        options.persistAccessTokenJwt(accessTokenJwt)
+        navigate('/', { replace: true })
+      }}
+      onReturnToSignIn={() => navigate('/', { replace: true })}
+    />
+  )
+}
 
 export default function App() {
   const fishSniperApiBaseUrl = useMemo(() => readFishSniperApiBaseUrlFromPublicEnv(), [])
@@ -22,10 +40,26 @@ export default function App() {
 
   if (!fishSniperAuthSession.accessTokenJwt) {
     return (
-      <FishSniperEmailOtpSignInPage
-        apiBaseUrl={fishSniperApiBaseUrl}
-        onAuthenticatedWithAccessToken={fishSniperAuthSession.persistAccessTokenJwt}
-      />
+      <Routes>
+        <Route
+          path="/auth/google/callback"
+          element={
+            <FishSniperGoogleOAuthCallbackRoute
+              apiBaseUrl={fishSniperApiBaseUrl}
+              persistAccessTokenJwt={fishSniperAuthSession.persistAccessTokenJwt}
+            />
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <FishSniperEmailOtpSignInPage
+              apiBaseUrl={fishSniperApiBaseUrl}
+              onAuthenticatedWithAccessToken={fishSniperAuthSession.persistAccessTokenJwt}
+            />
+          }
+        />
+      </Routes>
     )
   }
 

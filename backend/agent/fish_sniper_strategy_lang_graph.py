@@ -117,6 +117,15 @@ def node_load_user_region_and_open_weather_map_snapshot(
     )
     with span_cm:
         region = request_body.region.strip()
+        manual_weather: ManualWeatherPayload | None = request_body.manual_weather
+        if manual_weather is not None:
+            return {
+                "profile_region_display_name": region,
+                "temperature_celsius": manual_weather.temperature_c,
+                "pressure_hectopascals": manual_weather.pressure_hpa,
+                "wind_speed_meters_per_second": manual_weather.wind_speed_ms,
+                "condition_code": manual_weather.condition_code,
+            }
         try:
             snapshot = fetch_or_refresh_cached_current_weather_snapshot_for_region(
                 profile_region_display_name=region,
@@ -132,18 +141,9 @@ def node_load_user_region_and_open_weather_map_snapshot(
                 "condition_code": snapshot.condition_code,
             }
         except FishSniperWeatherUnavailableError:
-            manual_weather: ManualWeatherPayload | None = request_body.manual_weather
-            if manual_weather is None:
-                return {
-                    "terminal_http_status": 503,
-                    "terminal_error_envelope": {"error": "Weather service unavailable"},
-                }
             return {
-                "profile_region_display_name": region,
-                "temperature_celsius": manual_weather.temperature_c,
-                "pressure_hectopascals": manual_weather.pressure_hpa,
-                "wind_speed_meters_per_second": manual_weather.wind_speed_ms,
-                "condition_code": manual_weather.condition_code,
+                "terminal_http_status": 503,
+                "terminal_error_envelope": {"error": "Weather service unavailable"},
             }
 
 

@@ -214,7 +214,7 @@ export function FishSniperStrategyPage() {
                     applyAutoSnapshotToManualWeatherFields()
                   }}
                 />
-                Manual
+                Manual (overrides Auto)
               </label>
             </div>
 
@@ -244,7 +244,7 @@ export function FishSniperStrategyPage() {
                     <p>Weather could not be loaded.</p>
                     {autoWeatherLastHttpStatusCode === 503 ? (
                       <p className="text-xs text-slate-400">
-                        Try switching to Manual and enter conditions, or check your region in profile.
+                        Switch to Manual and enter conditions, or fix the region in profile.
                       </p>
                     ) : null}
                   </div>

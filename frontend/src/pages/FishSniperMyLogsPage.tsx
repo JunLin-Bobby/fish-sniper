@@ -770,7 +770,7 @@ export function FishSniperMyLogsPage() {
                   </span>
                 ) : (
                   <span className="text-[11px] font-normal leading-snug text-slate-500">
-                    與之後個人化建議相關，請與實際釣點用語保持一致（含大小寫）。
+                    Used by personalized strategy suggestions later. Keep the wording consistent with your actual spot name (case-sensitive).
                   </span>
                 )}
               </label>

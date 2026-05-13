@@ -12,7 +12,7 @@ FishSniperStrategyTargetSpeciesLiteral = Literal["Largemouth Bass", "Smallmouth 
 
 
 class ManualWeatherPayload(BaseModel):
-    """Optional manual weather used when OpenWeatherMap returns 503."""
+    """Weather override used when the caller wants to bypass the automatic OpenWeatherMap fetch."""
 
     temperature_c: float = Field(description="Air temperature in degrees Celsius.")
     condition_code: str = Field(
@@ -42,7 +42,10 @@ class GenerateBassStrategyRequestBody(BaseModel):
 
     manual_weather: ManualWeatherPayload | None = Field(
         default=None,
-        description="Optional manual weather snapshot when automatic weather is unavailable.",
+        description=(
+            "When provided, the strategy pipeline uses these values directly and skips "
+            "OpenWeatherMap. Otherwise OWM is queried using `region`."
+        ),
     )
 
     @model_validator(mode="after")

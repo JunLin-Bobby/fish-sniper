@@ -83,6 +83,22 @@ def get_otp_code_generator_callable() -> Callable[[], str]:
     return generate_six_digit_otp_code_from_secrets
 
 
+def get_google_oauth_token_exchange_callable() -> Callable[..., dict]:
+    """Return the production token-exchange callable (overridable in tests)."""
+
+    from auth.google_oauth_client import exchange_authorization_code_for_token_response
+
+    return exchange_authorization_code_for_token_response
+
+
+def get_google_jwks_key_resolver():
+    """Return the production Google JWKS key resolver (overridable in tests)."""
+
+    from auth.google_id_token_verification import build_default_google_jwks_key_resolver
+
+    return build_default_google_jwks_key_resolver()
+
+
 def get_fish_sniper_embedding_client() -> FishSniperEmbeddingClient:
     """Return the process-wide Gemini embedding client.
 
@@ -124,4 +140,12 @@ OtpCodeGeneratorDep = Annotated[
 FishSniperEmbeddingClientDep = Annotated[
     FishSniperEmbeddingClient,
     Depends(get_fish_sniper_embedding_client),
+]
+GoogleOAuthTokenExchangeCallableDep = Annotated[
+    Callable[..., dict],
+    Depends(get_google_oauth_token_exchange_callable),
+]
+GoogleJwksKeyResolverDep = Annotated[
+    object,
+    Depends(get_google_jwks_key_resolver),
 ]

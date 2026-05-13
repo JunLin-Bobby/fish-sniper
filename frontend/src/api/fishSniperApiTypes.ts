@@ -9,6 +9,14 @@ export interface VerifyEmailOtpResponsePayload {
   is_new_user: boolean
 }
 
+export interface GoogleOAuthExchangeRequestPayload {
+  code: string
+  code_verifier: string
+  redirect_uri: string
+}
+
+export type GoogleOAuthExchangeResponsePayload = VerifyEmailOtpResponsePayload
+
 export interface UserPreferencesResponsePayload {
   region: string | null
   onboarding_completed: boolean

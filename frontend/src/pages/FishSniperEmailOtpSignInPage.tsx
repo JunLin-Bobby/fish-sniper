@@ -9,6 +9,11 @@ import {
   FishSniperHttpTimeoutError,
   postJsonWithFishSniperApi,
 } from '../api/fishSniperJsonHttpClient.ts'
+import { beginGoogleOAuthAuthorizationFlowFromBrowser } from '../auth/fishSniperGoogleOAuthPkce.ts'
+import {
+  readFishSniperGoogleOAuthPublicConfigFromEnvOrNull,
+  readFishSniperShouldShowEmailOtpLoginFromEnv,
+} from '../config/readFishSniperPublicEnv.ts'
 
 function isLikelyValidEmailAddress(rawEmailAddress: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmailAddress.trim())
@@ -48,6 +53,33 @@ export function FishSniperEmailOtpSignInPage(options: {
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false)
 
   const [resendCooldownSecondsRemaining, setResendCooldownSecondsRemaining] = useState(0)
+  const [googleSignInHardFailureMessage, setGoogleSignInHardFailureMessage] = useState<
+    string | null
+  >(null)
+  const googleOAuthPublicConfig = useMemo(
+    () => readFishSniperGoogleOAuthPublicConfigFromEnvOrNull(),
+    [],
+  )
+  const shouldShowEmailOtpLoginBlock = useMemo(
+    () => readFishSniperShouldShowEmailOtpLoginFromEnv(),
+    [],
+  )
+
+  const handleClickContinueWithGoogle = async (): Promise<void> => {
+    setGoogleSignInHardFailureMessage(null)
+    if (!googleOAuthPublicConfig) {
+      setGoogleSignInHardFailureMessage('Google sign-in is not configured for this environment.')
+      return
+    }
+    try {
+      await beginGoogleOAuthAuthorizationFlowFromBrowser({
+        clientId: googleOAuthPublicConfig.clientId,
+        redirectUri: googleOAuthPublicConfig.redirectUri,
+      })
+    } catch {
+      setGoogleSignInHardFailureMessage('Could not start the Google sign-in flow. Please try again.')
+    }
+  }
 
   const mergedOtpSixDigits = useMemo(() => {
     return otpDigitCharList.join('')
@@ -164,9 +196,13 @@ export function FishSniperEmailOtpSignInPage(options: {
           {activeSignInStep === 'email' ? (
             <>
               <h2 className="text-xl font-semibold">Sign in to FishSniper</h2>
-              <p className="text-sm text-gray-500">
-                Enter your email to receive a verification code
-              </p>
+              {shouldShowEmailOtpLoginBlock ? (
+                <p className="text-sm text-gray-500">
+                  Continue with Google, or use email to receive a verification code.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">Continue with your Google account.</p>
+              )}
             </>
           ) : (
             <>
@@ -178,7 +214,29 @@ export function FishSniperEmailOtpSignInPage(options: {
           )}
         </div>
 
-        {activeSignInStep === 'email' ? (
+        {activeSignInStep === 'email' && googleOAuthPublicConfig ? (
+          <div className="space-y-3">
+            <button
+              type="button"
+              className="w-full rounded-md bg-white text-gray-900 font-semibold py-2 text-sm hover:bg-gray-200"
+              onClick={() => void handleClickContinueWithGoogle()}
+            >
+              Continue with Google
+            </button>
+            {googleSignInHardFailureMessage ? (
+              <p className="text-sm text-red-400">{googleSignInHardFailureMessage}</p>
+            ) : null}
+            {shouldShowEmailOtpLoginBlock ? (
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-gray-500">
+                <span className="h-px flex-1 bg-gray-800" />
+                or use email
+                <span className="h-px flex-1 bg-gray-800" />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {shouldShowEmailOtpLoginBlock && activeSignInStep === 'email' ? (
           <div className="space-y-3">
             <input
               className="w-full rounded-md bg-gray-900 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
@@ -200,7 +258,9 @@ export function FishSniperEmailOtpSignInPage(options: {
               {isSendingEmailOtp ? 'Sending…' : 'Send code'}
             </button>
           </div>
-        ) : (
+        ) : null}
+
+        {activeSignInStep === 'otp' ? (
           <div className="space-y-4">
             <div className="grid grid-cols-6 gap-2">
               {otpDigitCharList.map((digitChar, digitIndex) => (
@@ -260,7 +320,7 @@ export function FishSniperEmailOtpSignInPage(options: {
               Use a different email
             </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )
