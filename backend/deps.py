@@ -84,18 +84,18 @@ def get_otp_code_generator_callable() -> Callable[[], str]:
 
 
 def get_fish_sniper_embedding_client() -> FishSniperEmbeddingClient:
-    """Return the process-wide OpenAI embedding client.
+    """Return the process-wide Gemini embedding client.
 
     Tests should override this dependency with a fake before issuing requests
-    that hit ``/logs`` POST or PATCH (see ``conftest.fake_embedding_client_autouse``).
+    that hit ``/logs`` POST or PATCH (see ``test_logs_api`` helpers).
     """
 
     global _fish_sniper_embedding_client_singleton
-    from embedding.openai_embedding_client import OpenAiFishSniperEmbeddingClient
+    from embedding.gemini_embedding_client import GeminiFishSniperEmbeddingClient
 
     if _fish_sniper_embedding_client_singleton is None:
         settings = get_fish_sniper_backend_settings()
-        _fish_sniper_embedding_client_singleton = OpenAiFishSniperEmbeddingClient(
+        _fish_sniper_embedding_client_singleton = GeminiFishSniperEmbeddingClient(
             fish_sniper_backend_settings=settings,
         )
     return _fish_sniper_embedding_client_singleton

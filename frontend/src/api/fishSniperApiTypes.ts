@@ -71,12 +71,24 @@ export interface BassStrategyRecommendationPayload {
   retrieve_technique: string
 }
 
+export interface ReferencedLogPayload {
+  log_id: string
+  log_date: string
+  fishing_location: string
+  lure_type: string
+  lure_color: string
+  retrieve_speed: string
+  caught_count: number
+}
+
 export interface GenerateBassStrategySuccessResponsePayload {
   fish_state: string
   recommendations: [BassStrategyRecommendationPayload, BassStrategyRecommendationPayload, BassStrategyRecommendationPayload]
   confidence_note: string
   weather_snapshot: WeatherSnapshotPayload
+  /** 0 = no personal log used; 1 = `referenced_log` is populated (P4 Part 2). */
   rag_logs_used: number
+  referenced_log?: ReferencedLogPayload | null
   generated_at: string
   fallback: false
 }
@@ -91,7 +103,7 @@ export interface GenerateBassStrategyFallbackResponsePayload {
 
 /**
  * Vector readiness for a fishing log.
- *  - 'pending': OpenAI embedding has not been written yet (initial state, or transient
+ *  - 'pending': Gemini embedding has not been written yet (initial state, or transient
  *    failure that the Part 2 background worker will retry).
  *  - 'done':    Vector is current and queryable.
  *  - 'failed':  Background worker gave up after exceeding `embedding_attempt_count`.

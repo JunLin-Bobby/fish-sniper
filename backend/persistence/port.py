@@ -15,7 +15,7 @@ class FishSniperFishingLogRow:
     * ``embedding_text_version``: schema version of the natural-language template
       used to generate the row's vector. Bumped when the composer changes.
     * ``embedding_attempt_count``: reserved for the Part 2 background worker
-      (incremented when retrying transient OpenAI failures). Part 1 never
+      (incremented when retrying transient Gemini failures). Part 1 never
       writes this field; it is exposed here so the row mapper round-trips
       cleanly with Supabase.
     """
@@ -43,6 +43,14 @@ class FishSniperFishingLogRow:
     embedding_attempt_count: int
     created_at_utc: datetime
     updated_at_utc: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class FishSniperFishingLogSimilarityHit:
+    """Row plus cosine distance from pgvector ``<=>`` (P4 Part 2 RAG)."""
+
+    row: FishSniperFishingLogRow
+    cosine_distance: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,7 +164,7 @@ class FishSniperPersistencePort(Protocol):
     ) -> UUID:
         """Insert a fishing log for the user; returns the new log id.
 
-        ``embedding=None`` means the OpenAI call failed (or was skipped) and the
+        ``embedding=None`` means the Gemini call failed (or was skipped) and the
         row should be persisted with ``embedding_status='pending'``. A non-None
         vector results in ``embedding_status='done'``.
         """
@@ -229,3 +237,18 @@ class FishSniperPersistencePort(Protocol):
         fish_sniper_user_id: UUID,
     ) -> str | None:
         """Fingerprint for a single log ETag; None if not found or not owned."""
+
+    def find_similar_fishing_log_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+        target_species: str,
+        query_embedding: list[float],
+        top_k: int,
+    ) -> list[FishSniperFishingLogSimilarityHit]:
+        """Return up to ``top_k`` rows ordered by cosine distance ascending.
+
+        Only ``embedding_status='done'`` rows with a stored vector are eligible.
+        Implementations raise ``FishSniperPersistenceUnavailableError`` on
+        transient Supabase/RPC failures.
+        """

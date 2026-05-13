@@ -1,8 +1,14 @@
 -- P4 Part 1: pgvector embedding columns + RPC functions for fishing_logs (FishSniper)
 -- Apply after `scripts/supabase_p3_fishing_logs.sql`.
 --
+-- If you already ran `scripts/supabase_reset_full_environment.sql`, this entire file is
+-- optional (reset bakes in the same columns + RPC). Keep this file for incremental
+-- upgrades on databases that were created from older repo revisions.
+--
 -- Decision (see docs/superpowers/specs/2026-05-09-p4-part1-embedding-crud-design.md):
---   * Embedding writes & queries both use OpenAI Embeddings (independent from Gemini LLM stack).
+--   * Embedding writes & queries both use Google Gemini Embeddings (model `gemini-embedding-001`,
+--     same `GEMINI_API_KEY` as the chat/strategy LLM). Project-wide single Google provider after
+--     the 2026-05-10 pivot from OpenAI.
 --   * Vector storage = same Postgres + pgvector column on `fishing_logs` (not Pinecone).
 --   * `pinecone_synced` is a legacy naming relic from the early phased MVP (which considered Pinecone)
 --     and is dropped here. The single source of truth for vector readiness is `embedding_status`.
@@ -17,8 +23,10 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ---------------------------------------------------------------------------
 -- 2. New columns on fishing_logs
 -- ---------------------------------------------------------------------------
--- Embedding vector. Dimension matches OpenAI `text-embedding-3-small` (1536).
--- If the model changes, this column must be migrated to a new dimension.
+-- Embedding vector. Dimension matches Gemini `gemini-embedding-001` requested via
+-- `output_dimensionality=1536` (Matryoshka). Keeping 1536 means the column stays
+-- compatible with both the previous OpenAI design and the current Gemini provider.
+-- If the model or requested dimensionality changes, this column must be migrated.
 ALTER TABLE fishing_logs
   ADD COLUMN IF NOT EXISTS embedding vector(1536) NULL;
 

@@ -46,7 +46,7 @@ def _install_logs_dependency_overrides(
 
     Tests that need a specific embedding behaviour (transient failure, custom
     vector) pass an explicit ``embedding_client``; everything else gets a
-    deterministic fake so no test hits the real OpenAI API.
+    deterministic fake so no test hits the real Gemini API.
     """
 
     app.dependency_overrides[get_fish_sniper_persistence_port] = lambda: fish_sniper_persistence
@@ -288,7 +288,7 @@ def test_post_fishing_log_with_successful_embedding_marks_status_done(
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
-    """Successful OpenAI call → embedding_status='done' on the persisted row."""
+    """Successful Gemini call → embedding_status='done' on the persisted row."""
 
     now_utc, _advance = frozen_clock
     user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
@@ -321,18 +321,18 @@ def test_post_fishing_log_with_successful_embedding_marks_status_done(
     assert "pinecone_synced" not in detail
 
 
-def test_post_fishing_log_with_transient_openai_failure_returns_201_pending(
+def test_post_fishing_log_with_transient_embedding_failure_returns_201_pending(
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
-    """OpenAI transient failure must NOT surface to the user; row persists with pending status."""
+    """Gemini transient failure must NOT surface to the user; row persists with pending status."""
 
     now_utc, _advance = frozen_clock
     user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
         normalized_email_address="embed-down@example.com",
     )
     failing_client = FakeFishSniperEmbeddingClient(
-        error_factory=lambda: FishSniperEmbeddingUnavailableError("openai is down"),
+        error_factory=lambda: FishSniperEmbeddingUnavailableError("gemini is down"),
     )
     app = create_fish_sniper_app()
     _install_logs_dependency_overrides(

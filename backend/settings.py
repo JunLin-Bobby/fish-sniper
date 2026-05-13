@@ -80,33 +80,29 @@ class FishSniperBackendSettings(BaseSettings):
         description="Gemini model id for structured JSON and battle plan summary.",
     )
 
-    openai_api_key: str | None = Field(
-        default=None,
-        description="OpenAI API key for embedding writes and similarity-search queries.",
-    )
-
-    openai_embedding_model: str = Field(
-        default="text-embedding-3-small",
+    gemini_embedding_model: str = Field(
+        default="gemini-embedding-001",
         description=(
-            "OpenAI embedding model id; must produce vectors of "
-            "openai_embedding_dimensions length."
+            "Gemini embedding model id; must produce vectors of "
+            "gemini_embedding_dimensions length when output_dimensionality is "
+            "supplied (Matryoshka). Reuses GEMINI_API_KEY for auth."
         ),
     )
 
-    openai_embedding_dimensions: int = Field(
+    gemini_embedding_dimensions: int = Field(
         default=1536,
         description=(
-            "Vector dimension produced by openai_embedding_model. Must match the "
-            "fishing_logs.embedding column type vector(N)."
+            "Vector dimension requested via Gemini's output_dimensionality. "
+            "Must match the fishing_logs.embedding column type vector(N)."
         ),
     )
 
-    openai_embedding_timeout_seconds: float = Field(
+    gemini_embedding_timeout_seconds: float = Field(
         default=5.0,
-        description="Per-request timeout for OpenAI embedding calls.",
+        description="Per-request timeout (seconds) for Gemini embed_content calls.",
     )
 
-    openai_embedding_max_attempts: int = Field(
+    gemini_embedding_max_attempts: int = Field(
         default=2,
         description=(
             "Maximum number of attempts (initial + retries) per embedding call. "

@@ -12,6 +12,7 @@ from supabase import Client, create_client
 from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import (
     FishSniperFishingLogRow,
+    FishSniperFishingLogSimilarityHit,
     FishSniperUserPreferencesRow,
     FishSniperUserRow,
 )
@@ -539,3 +540,54 @@ class SupabaseFishSniperPersistenceAdapter:
             raise FishSniperPersistenceUnavailableError(
                 "fishing log etag fingerprint failed",
             ) from exc
+
+    def find_similar_fishing_log_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+        target_species: str,
+        query_embedding: list[float],
+        top_k: int,
+    ) -> list[FishSniperFishingLogSimilarityHit]:
+        embedding_text = _serialize_embedding_for_pgvector(query_embedding)
+        if embedding_text is None:
+            raise FishSniperPersistenceUnavailableError("query embedding must not be empty")
+
+        try:
+            response = self._client.rpc(
+                "fish_sniper_find_similar_fishing_log",
+                {
+                    "p_user_id": str(fish_sniper_user_id),
+                    "p_target_species": target_species,
+                    "p_query_embedding": embedding_text,
+                    "p_limit": top_k,
+                },
+            ).execute()
+        except FishSniperPersistenceUnavailableError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Supabase fishing log similarity RPC failed")
+            raise FishSniperPersistenceUnavailableError(
+                "fishing log similarity search failed",
+            ) from exc
+
+        raw_rows = response.data if isinstance(response.data, list) else []
+        hits: list[FishSniperFishingLogSimilarityHit] = []
+        for item in raw_rows:
+            if not isinstance(item, dict):
+                continue
+            payload = item.get("log_jsonb")
+            if payload is None:
+                payload = item.get("log_jsonb_")
+            distance_raw = item.get("cosine_distance")
+            if payload is None or distance_raw is None:
+                continue
+            row_dict = dict(payload) if isinstance(payload, dict) else {}
+            row = _fish_sniper_fishing_log_row_from_supabase(row_dict)
+            hits.append(
+                FishSniperFishingLogSimilarityHit(
+                    row=row,
+                    cosine_distance=float(distance_raw),
+                ),
+            )
+        return hits

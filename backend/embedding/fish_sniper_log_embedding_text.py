@@ -1,9 +1,10 @@
 """Deterministic natural-language composer for fishing-log embedding input.
 
 The output of `compose_fishing_log_embedding_text` is fed verbatim into the
-OpenAI Embeddings API. Determinism matters: the same row must produce
-byte-identical text on every invocation so a future migration can detect
-"vector is stale because the row changed" reliably.
+Gemini ``embed_content`` API (model ``gemini-embedding-001``). Determinism
+matters: the same row must produce byte-identical text on every invocation so
+a future migration can detect "vector is stale because the row changed"
+reliably.
 
 Bumping the template (re-ordering, adding fields, changing labels) requires
 bumping `EMBEDDING_TEXT_VERSION`. Part 2 will use that constant to filter out

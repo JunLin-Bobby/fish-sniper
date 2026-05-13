@@ -8,19 +8,39 @@ import os
 os.environ["FRONTEND_ORIGIN"] = "http://localhost:5173"
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 
+import math
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
 
-from embedding.port import FishSniperEmbeddingClient
+from embedding.port import FishSniperEmbeddingClient, FishSniperEmbeddingTask
 from persistence.port import (
     FishSniperFishingLogRow,
+    FishSniperFishingLogSimilarityHit,
     FishSniperUserPreferencesRow,
     FishSniperUserRow,
 )
 from settings import get_fish_sniper_backend_settings
+
+
+def _fish_sniper_cosine_distance_between_vectors(a: list[float], b: list[float]) -> float:
+    """Cosine distance ``1 - cos_sim``; matches pgvector ``<=>`` for L2-normalized inputs."""
+
+    if not a or not b or len(a) != len(b):
+        return 1.0
+    dot = math.fsum(x * y for x, y in zip(a, b, strict=True))
+    norm_a = math.sqrt(math.fsum(x * x for x in a))
+    norm_b = math.sqrt(math.fsum(y * y for y in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 1.0
+    similarity = dot / (norm_a * norm_b)
+    if similarity > 1.0:
+        similarity = 1.0
+    if similarity < -1.0:
+        similarity = -1.0
+    return 1.0 - similarity
 
 
 class InMemoryFishSniperPersistenceAdapter:
@@ -31,6 +51,7 @@ class InMemoryFishSniperPersistenceAdapter:
         self._user_row_by_normalized_email: dict[str, FishSniperUserRow] = {}
         self._preferences_row_by_user_id: dict[UUID, FishSniperUserPreferencesRow] = {}
         self._fishing_log_row_list: list[FishSniperFishingLogRow] = []
+        self._embedding_by_log_id: dict[UUID, list[float]] = {}
 
     def fetch_seconds_since_last_otp_send_for_email(
         self,
@@ -177,6 +198,8 @@ class InMemoryFishSniperPersistenceAdapter:
             updated_at_utc=reference_time_utc,
         )
         self._fishing_log_row_list.append(row)
+        if embedding is not None:
+            self._embedding_by_log_id[log_id] = list(embedding)
         return log_id
 
     def list_fishing_logs_for_user_id_ordered_by_date_desc(
@@ -253,6 +276,10 @@ class InMemoryFishSniperPersistenceAdapter:
                     updated_at_utc=reference_time_utc,
                 )
                 self._fishing_log_row_list[index] = updated
+                if embedding is not None:
+                    self._embedding_by_log_id[log_id] = list(embedding)
+                else:
+                    self._embedding_by_log_id.pop(log_id, None)
                 return updated
         return None
 
@@ -265,6 +292,7 @@ class InMemoryFishSniperPersistenceAdapter:
         for index, row in enumerate(self._fishing_log_row_list):
             if row.log_id == log_id and row.fish_sniper_user_id == fish_sniper_user_id:
                 del self._fishing_log_row_list[index]
+                self._embedding_by_log_id.pop(log_id, None)
                 return True
         return False
 
@@ -295,13 +323,43 @@ class InMemoryFishSniperPersistenceAdapter:
             return None
         return f"{row.log_id}:{row.updated_at_utc.isoformat()}"
 
+    def find_similar_fishing_log_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+        target_species: str,
+        query_embedding: list[float],
+        top_k: int,
+    ) -> list[FishSniperFishingLogSimilarityHit]:
+        candidates: list[FishSniperFishingLogRow] = []
+        for row in self._fishing_log_row_list:
+            if row.fish_sniper_user_id != fish_sniper_user_id:
+                continue
+            if row.target_species != target_species:
+                continue
+            if row.embedding_status != "done":
+                continue
+            if row.log_id not in self._embedding_by_log_id:
+                continue
+            candidates.append(row)
+
+        hits: list[FishSniperFishingLogSimilarityHit] = []
+        for row in candidates:
+            stored = self._embedding_by_log_id[row.log_id]
+            distance = _fish_sniper_cosine_distance_between_vectors(stored, query_embedding)
+            hits.append(
+                FishSniperFishingLogSimilarityHit(row=row, cosine_distance=distance),
+            )
+        hits.sort(key=lambda h: (h.cosine_distance, str(h.row.log_id)))
+        return hits[:top_k]
+
 
 class FakeFishSniperEmbeddingClient(FishSniperEmbeddingClient):
-    """Configurable fake used by every backend test to avoid real OpenAI calls.
+    """Configurable fake used by every backend test to avoid real Gemini calls.
 
     Default behaviour: return a fixed 1536-d vector. Tests that exercise the
     transient-failure path inject a different fake (see
-    ``test_logs_api`` POST-OpenAI-fail case) by overriding the FastAPI
+    ``test_logs_api`` POST-Gemini-fail case) by overriding the FastAPI
     dependency directly.
     """
 
@@ -315,8 +373,14 @@ class FakeFishSniperEmbeddingClient(FishSniperEmbeddingClient):
         self._error_factory = error_factory
         self.call_count = 0
 
-    def embed(self, *, text: str) -> list[float]:
+    def embed(
+        self,
+        *,
+        text: str,
+        task: FishSniperEmbeddingTask = "document",
+    ) -> list[float]:
         _ = text
+        _ = task
         self.call_count += 1
         if self._error_factory is not None:
             raise self._error_factory()

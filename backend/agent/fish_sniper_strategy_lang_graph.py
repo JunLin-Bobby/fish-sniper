@@ -1,4 +1,4 @@
-"""LangGraph for P2 bass strategy: RAG stub (Step 3), single structured Gemini JSON call."""
+"""LangGraph for P2/P4 bass strategy: RAG retrieval (Step 3), structured Gemini JSON call."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing_extensions import TypedDict
 
 from agent.fish_sniper_strategy_prompt_assembler import (
     build_general_best_practice_system_prompt_for_bass_strategy,
+    build_personalized_system_prompt_with_reference_log_for_bass_strategy,
     build_shared_user_prompt_for_environmental_json_strategy,
 )
 from agent.gemini_text_generation import (
@@ -25,6 +26,12 @@ from agent.langfuse_observability import (
     build_langfuse_client_or_none,
     flush_langfuse_client_best_effort,
 )
+from embedding.fish_sniper_log_query_embedding_text import compose_fishing_log_query_embedding_text
+from embedding.port import (
+    FishSniperEmbeddingClient,
+    FishSniperEmbeddingUnavailableError,
+)
+from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import FishSniperPersistencePort
 from schemas.agent_schemas import (
     BassStrategyStructuredLlmOutputBody,
@@ -32,6 +39,7 @@ from schemas.agent_schemas import (
     GenerateBassStrategyRequestBody,
     GenerateBassStrategySuccessResponseBody,
     ManualWeatherPayload,
+    ReferencedLogPayload,
     WeatherSnapshotPayload,
 )
 from settings import FishSniperBackendSettings
@@ -70,6 +78,8 @@ class FishSniperStrategyGraphStateSchema(TypedDict, total=False):
     retrieved_log_count: int
     retrieved_logs: list[Any]
     has_personal_log: bool
+    selected_reference_log: Any
+    embedding_client: Any
     structured_strategy_system_prompt: str
     structured_strategy_user_prompt: str
     raw_structured_strategy_llm_output: str
@@ -137,49 +147,158 @@ def node_load_user_region_and_open_weather_map_snapshot(
             }
 
 
-def node_short_circuit_personal_log_retrieval_for_p2(
+def _degraded_rag_state() -> FishSniperStrategyGraphState:
+    return {
+        "retrieved_log_count": 0,
+        "retrieved_logs": [],
+        "selected_reference_log": None,
+        "has_personal_log": False,
+    }
+
+
+def node_search_personal_reference_log(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
-    """Step 3 stub: pgvector RAG is not wired until P4 Part 2."""
+    """Step 3: embed query text, pgvector search, degrade to general branch on any soft failure."""
 
     if _read_terminal_http_status_from_state(state) is not None:
         return {}
+
+    embedding_client: FishSniperEmbeddingClient = state["embedding_client"]
+    persistence_port: FishSniperPersistencePort = state["persistence_port"]
+    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
+    user_id: UUID = state["fish_sniper_user_id"]
+
+    query_text = compose_fishing_log_query_embedding_text(
+        fishing_location=request_body.fishing_location.strip(),
+        fishing_scene=request_body.fishing_scene.strip(),
+        target_species=request_body.target_species,
+        water_depth_m=request_body.water_depth_m,
+        temperature_c=state["temperature_celsius"],
+        wind_speed_ms=state["wind_speed_meters_per_second"],
+        pressure_hpa=state["pressure_hectopascals"],
+        condition_code=state["condition_code"],
+    )
+
+    print(
+        "\n----- [Strategy Step 3] input summary -----\n"
+        f"user_id={user_id}\n"
+        f"region={request_body.region!r}\n"
+        f"fishing_location={request_body.fishing_location!r}\n"
+        f"fishing_scene={request_body.fishing_scene!r}\n"
+        f"target_species={request_body.target_species!r}\n"
+        f"water_depth_m={request_body.water_depth_m}\n"
+        f"weather: temp_c={state['temperature_celsius']}, wind_ms="
+        f"{state['wind_speed_meters_per_second']}, pressure_hpa={state['pressure_hectopascals']}, "
+        f"condition={state['condition_code']!r}\n"
+        "----- end input summary -----",
+        flush=True,
+    )
+    print(
+        "\n----- [Strategy Step 3] composed query embedding text "
+        f"(length={len(query_text)}) -----\n"
+        f"{query_text}\n"
+        "----- end composed query embedding text -----",
+        flush=True,
+    )
 
     langfuse_client = state.get("langfuse_client")
     span_cm = (
         langfuse_client.start_as_current_span(
-            name="search_fishing_log_stub", metadata={"step": "3"}
+            name="search_personal_reference_log",
+            metadata={"step": "3", "top_k": 3},
         )
         if langfuse_client is not None
         else nullcontext()
     )
     with span_cm:
+        try:
+            query_vector = embedding_client.embed(text=query_text, task="query")
+        except FishSniperEmbeddingUnavailableError:
+            logger.warning("gemini_embedding_unavailable_in_rag_query_degrading_to_general")
+            print(
+                "\n----- [Strategy Step 3] RAG degraded: embedding transient failure -----\n",
+                flush=True,
+            )
+            return _degraded_rag_state()
+
+        try:
+            hits = persistence_port.find_similar_fishing_log_for_user_id(
+                fish_sniper_user_id=user_id,
+                target_species=request_body.target_species,
+                query_embedding=query_vector,
+                top_k=3,
+            )
+        except FishSniperPersistenceUnavailableError:
+            logger.warning("rag_persistence_unavailable_degrading_to_general")
+            print(
+                "\n----- [Strategy Step 3] RAG degraded: persistence failure -----\n",
+                flush=True,
+            )
+            return _degraded_rag_state()
+
+        print(
+            f"\n----- [Strategy Step 3] top-K search hits (count={len(hits)}) -----",
+            flush=True,
+        )
+        for index, hit in enumerate(hits):
+            row = hit.row
+            print(
+                f"[{index}] distance={hit.cosine_distance:.6f}  log_id={row.log_id}  "
+                f"log_date={row.log_date.isoformat()}  location={row.fishing_location!r}  "
+                f"lure={row.lure_type}/{row.lure_color}",
+                flush=True,
+            )
+        if not hits:
+            print("(no qualifying logs)\n----- end top-K search hits -----", flush=True)
+        else:
+            print("----- end top-K search hits -----", flush=True)
+
+        if not hits:
+            return _degraded_rag_state()
+
+        selected = hits[0]
+
         return {
-            "retrieved_log_count": 0,
-            "retrieved_logs": [],
-            "has_personal_log": False,
+            "retrieved_log_count": len(hits),
+            "retrieved_logs": [hit.row for hit in hits],
+            "selected_reference_log": selected.row,
+            "has_personal_log": True,
         }
 
 
-def node_assemble_prompts_for_general_branch(
+def node_assemble_prompts(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
-    """Step 4: prompts for the no-log branch."""
+    """Step 4: personalized or general system prompt plus shared user JSON instructions."""
 
     if _read_terminal_http_status_from_state(state) is not None:
         return {}
 
     langfuse_client = state.get("langfuse_client")
+    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
+    has_personal_log = bool(state.get("has_personal_log"))
+
     span_cm = (
-        langfuse_client.start_as_current_span(name="build_system_prompt", metadata={"step": "4"})
+        langfuse_client.start_as_current_span(
+            name="build_system_prompt",
+            metadata={"step": "4", "branch": "personalized" if has_personal_log else "general"},
+        )
         if langfuse_client is not None
         else nullcontext()
     )
     with span_cm:
-        request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
-        system_prompt = build_general_best_practice_system_prompt_for_bass_strategy(
-            target_species=request_body.target_species,
-        )
+        if has_personal_log:
+            reference_log = state["selected_reference_log"]
+            system_prompt = build_personalized_system_prompt_with_reference_log_for_bass_strategy(
+                target_species=request_body.target_species,
+                reference_log=reference_log,
+            )
+        else:
+            system_prompt = build_general_best_practice_system_prompt_for_bass_strategy(
+                target_species=request_body.target_species,
+            )
+
         user_prompt = build_shared_user_prompt_for_environmental_json_strategy(
             region=state["profile_region_display_name"],
             fishing_location=request_body.fishing_location.strip(),
@@ -190,12 +309,22 @@ def node_assemble_prompts_for_general_branch(
             wind_speed_ms=state["wind_speed_meters_per_second"],
             condition_code=state["condition_code"],
             target_species=request_body.target_species,
+            personalized=has_personal_log,
         )
+
+        print(
+            "\n----- [Strategy Step 4] final system prompt "
+            f"(branch={'personalized' if has_personal_log else 'general'}, "
+            f"chars={len(system_prompt)}) -----\n"
+            f"{system_prompt}\n"
+            "----- end final system prompt -----",
+            flush=True,
+        )
+
         return {
             "structured_strategy_system_prompt": system_prompt,
             "structured_strategy_user_prompt": user_prompt,
         }
-
 
 def node_invoke_gemini_for_structured_json_strategy(
     state: FishSniperStrategyGraphState,
@@ -339,6 +468,22 @@ def node_finalize_success_response_model(
         state["structured_strategy_parsed_dict"],
     )
     generated_at_utc = datetime.now(tz=UTC)
+    has_personal = bool(state.get("has_personal_log"))
+    selected = state.get("selected_reference_log")
+    referenced_log_payload: ReferencedLogPayload | None = None
+    rag_logs_used = 0
+    if has_personal and selected is not None:
+        referenced_log_payload = ReferencedLogPayload(
+            log_id=selected.log_id,
+            log_date=selected.log_date,
+            fishing_location=selected.fishing_location,
+            lure_type=selected.lure_type,
+            lure_color=selected.lure_color,
+            retrieve_speed=selected.retrieve_speed,
+            caught_count=selected.caught_count,
+        )
+        rag_logs_used = 1
+
     success = GenerateBassStrategySuccessResponseBody(
         fish_state=llm_payload.fish_state,
         recommendations=llm_payload.recommendations,
@@ -349,7 +494,8 @@ def node_finalize_success_response_model(
             wind_speed_ms=state["wind_speed_meters_per_second"],
             condition_code=state["condition_code"],
         ),
-        rag_logs_used=0,
+        rag_logs_used=rag_logs_used,
+        referenced_log=referenced_log_payload,
         generated_at=generated_at_utc,
         fallback=False,
     )
@@ -383,8 +529,8 @@ def build_fish_sniper_strategy_state_graph() -> StateGraph:
     graph_builder.add_node(
         "load_region_and_weather", node_load_user_region_and_open_weather_map_snapshot
     )
-    graph_builder.add_node("rag_short_circuit_p2", node_short_circuit_personal_log_retrieval_for_p2)
-    graph_builder.add_node("assemble_prompts", node_assemble_prompts_for_general_branch)
+    graph_builder.add_node("rag_search_personal_log", node_search_personal_reference_log)
+    graph_builder.add_node("assemble_prompts", node_assemble_prompts)
     graph_builder.add_node("structured_generation", node_invoke_gemini_for_structured_json_strategy)
     graph_builder.add_node(
         "validate_structured_json", node_parse_and_validate_structured_json_strategy
@@ -399,10 +545,10 @@ def build_fish_sniper_strategy_state_graph() -> StateGraph:
         route_after_load_region_and_weather,
         {
             "terminal_stop": "pipeline_terminal_stop",
-            "continue": "rag_short_circuit_p2",
+            "continue": "rag_search_personal_log",
         },
     )
-    graph_builder.add_edge("rag_short_circuit_p2", "assemble_prompts")
+    graph_builder.add_edge("rag_search_personal_log", "assemble_prompts")
     graph_builder.add_edge("assemble_prompts", "structured_generation")
     graph_builder.add_edge("structured_generation", "validate_structured_json")
     graph_builder.add_conditional_edges(
@@ -475,6 +621,7 @@ def invoke_fish_sniper_strategy_graph(
     persistence_port: FishSniperPersistencePort,
     weather_snapshot_cache_port: WeatherSnapshotCachePort,
     reference_time_utc: datetime,
+    embedding_client: FishSniperEmbeddingClient,
 ) -> FishSniperStrategyGraphState:
     """Return the graph final state (terminal errors or success/fallback JSON bodies)."""
 
@@ -490,6 +637,7 @@ def invoke_fish_sniper_strategy_graph(
         "reference_time_utc": reference_time_utc,
         "langfuse_client": langfuse_client,
         "structured_json_retry_count": 0,
+        "embedding_client": embedding_client,
     }
     root_cm = (
         langfuse_client.start_as_current_span(

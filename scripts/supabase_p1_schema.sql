@@ -1,8 +1,10 @@
 -- P1 schema: AUTH + ONBOARDING (FishSniper)
 -- Run in Supabase SQL editor or via migration tool.
+--
+-- Full wipe + latest `fishing_logs` + pgvector + RPCs: use
+-- `scripts/supabase_reset_full_environment.sql` instead of piecing P1+P3+P4 manually.
 
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE IF NOT EXISTS users (  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
 );

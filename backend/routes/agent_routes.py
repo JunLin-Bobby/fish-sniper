@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from agent.fish_sniper_strategy_lang_graph import invoke_fish_sniper_strategy_graph
 from deps import (
+    FishSniperEmbeddingClientDep,
     FishSniperPersistenceDep,
     FishSniperSettingsDep,
     ReferenceTimeUtcCallableDep,
@@ -26,7 +27,8 @@ router = APIRouter()
     "/strategy",
     summary="Generate a bass lure strategy via LangGraph and Gemini",
     description=(
-        "Runs the FishSniper agent pipeline (weather, RAG stub, single Gemini JSON strategy). "
+        "Runs the FishSniper agent pipeline (weather, optional RAG over fishing logs, "
+        "single Gemini JSON strategy). "
         "Send `region` for OpenWeatherMap; use `manual_weather` when OWM is unavailable."
     ),
     responses={
@@ -53,6 +55,7 @@ def handle_generate_bass_lure_strategy_request(
     fish_sniper_persistence: FishSniperPersistenceDep,
     fish_sniper_backend_settings: FishSniperSettingsDep,
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
+    embedding_client: FishSniperEmbeddingClientDep,
 ) -> GenerateBassStrategySuccessResponseBody | GenerateBassStrategyFallbackResponseBody:
     _ = request
     reference_time_utc = reference_time_utc_callable()
@@ -63,6 +66,7 @@ def handle_generate_bass_lure_strategy_request(
         persistence_port=fish_sniper_persistence,
         weather_snapshot_cache_port=get_fish_sniper_weather_snapshot_cache_port(),
         reference_time_utc=reference_time_utc,
+        embedding_client=embedding_client,
     )
 
     terminal_http_status = final_state.get("terminal_http_status")

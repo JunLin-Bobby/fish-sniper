@@ -1,5 +1,7 @@
 -- P3 seed: dev user + preferences + sample fishing_logs (phased MVP design).
--- Run after `scripts/supabase_p1_schema.sql` and `scripts/supabase_p3_fishing_logs.sql`.
+-- Apply after schema is in place, using either:
+--   A) `scripts/supabase_reset_full_environment.sql` (recommended: wipe + latest schema + RPC), or
+--   B) `supabase_p1_schema.sql` -> `supabase_p3_fishing_logs.sql` -> `supabase_p4_part1_log_embeddings.sql`
 -- Idempotent for the P1 rows; fishing log rows use fixed ids so re-runs do not duplicate.
 
 INSERT INTO users (id, email) VALUES
@@ -16,7 +18,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 -- DROPPED in P4 Part 1 (see scripts/supabase_p4_part1_log_embeddings.sql) and replaced
 -- by `embedding_status`. Seed rows insert without an explicit status — the column's
 -- DEFAULT 'pending' takes effect, and the runtime POST /logs path (or future Part 2
--- background worker) will flip it to 'done' once OpenAI embeddings are written.
+-- background worker) will flip it to 'done' once Gemini embeddings are written.
 INSERT INTO fishing_logs
   (id, user_id, date, fishing_location, fishing_scene, target_species, water_depth_m,
    lure_type, lure_color, retrieve_speed, caught_count, weight_lb,

@@ -71,7 +71,7 @@ class FishingLogResponseBody(BaseModel):
     notes: str
     embedding_status: FishSniperEmbeddingStatusLiteral = Field(
         description=(
-            "Vector readiness flag: `pending` when the OpenAI embedding call has not "
+            "Vector readiness flag: `pending` when the Gemini embedding call has not "
             "yet succeeded for this row, `done` when the row's vector is current and "
             "queryable, `failed` when the background worker has given up."
         ),

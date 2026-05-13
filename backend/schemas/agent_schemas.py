@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -117,6 +118,18 @@ class BassStrategyStructuredLlmOutputBody(BaseModel):
         return value
 
 
+class ReferencedLogPayload(BaseModel):
+    """Summary of the fishing log that informed the strategy (P4 Part 2 RAG)."""
+
+    log_id: UUID = Field(description="Referenced fishing log id.")
+    log_date: date = Field(description="Date of the referenced trip (ISO calendar date).")
+    fishing_location: str = Field(description="Location label from the referenced log.")
+    lure_type: str = Field(description="Lure category from the referenced log.")
+    lure_color: str = Field(description="Lure color from the referenced log.")
+    retrieve_speed: str = Field(description="Retrieve style from the referenced log.")
+    caught_count: int = Field(description="Fish caught on the referenced trip.")
+
+
 class GenerateBassStrategySuccessResponseBody(BaseModel):
     """Successful structured strategy: fish state, three lure rows, and weather echo."""
 
@@ -134,7 +147,11 @@ class GenerateBassStrategySuccessResponseBody(BaseModel):
         description="Weather used for generation (live or manual).",
     )
     rag_logs_used: int = Field(
-        description="Count of personal logs incorporated; P2 is always 0.",
+        description="0 when no personal log was used; 1 when referenced_log is populated.",
+    )
+    referenced_log: ReferencedLogPayload | None = Field(
+        default=None,
+        description="Past fishing log used for personalization; null when RAG degraded or empty.",
     )
     generated_at: datetime = Field(description="UTC timestamp when the response was finalized.")
     fallback: Literal[False] = Field(default=False, description="Always false for this shape.")

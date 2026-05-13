@@ -407,6 +407,29 @@ export function FishSniperStrategyPage() {
               <p className="text-xs text-slate-400">
                 Seven tiles: fish mood, three lure picks, three retrieve notes (primary → tertiary).
               </p>
+              {strategySuccessPayload.referenced_log ? (
+                <div
+                  className={`${glassPanelClassName} !p-4 border-sky-500/25 bg-sky-950/25 sm:col-span-3`}
+                >
+                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200/90">
+                    Reference log
+                  </h3>
+                  <p className="text-sm leading-relaxed text-slate-100">
+                    This run used your{' '}
+                    <span className="font-medium text-slate-50">
+                      {strategySuccessPayload.referenced_log.log_date}
+                    </span>{' '}
+                    trip at{' '}
+                    <span className="font-medium text-slate-50">
+                      {strategySuccessPayload.referenced_log.fishing_location}
+                    </span>
+                    : {strategySuccessPayload.referenced_log.lure_type} /{' '}
+                    {strategySuccessPayload.referenced_log.lure_color},{' '}
+                    {strategySuccessPayload.referenced_log.retrieve_speed},{' '}
+                    {strategySuccessPayload.referenced_log.caught_count} fish caught.
+                  </p>
+                </div>
+              ) : null}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div
                   className={`${glassPanelClassName} !p-4 sm:col-span-3 border-emerald-500/20 bg-emerald-950/20`}

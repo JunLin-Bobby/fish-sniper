@@ -41,7 +41,7 @@ def _embed_log_text_or_return_none_on_transient_failure(
     embedding_client,
     request_body: CreateOrUpdateFishingLogRequestBody,
 ) -> list[float] | None:
-    """Compose the embedding text and call OpenAI; degrade to None on transient failure.
+    """Compose the embedding text and call Gemini; degrade to None on transient failure.
 
     ``FishSniperEmbeddingMisconfiguredError`` (raised by the client for permanent
     errors like a bad key or wrong model id) is intentionally NOT caught — it
@@ -66,11 +66,22 @@ def _embed_log_text_or_return_none_on_transient_failure(
         condition_code=request_body.condition_code,
         notes=request_body.notes,
     )
+    # Dev observability: print the natural-language string that will be sent to Gemini.
+    # Uses print() (not logger.debug) so it surfaces under uvicorn's default log config
+    # without requiring callers to bump log levels. Remove or downgrade to logger.debug
+    # once embedding behaviour is locked down.
+    # print(
+    #     "\n----- [POST/PATCH /logs] composed embedding text "
+    #     f"(version={EMBEDDING_TEXT_VERSION}, length={len(text)}) -----\n"
+    #     f"{text}\n"
+    #     "----- end composed embedding text -----",
+    #     flush=True,
+    # )
     try:
         return embedding_client.embed(text=text)
     except FishSniperEmbeddingUnavailableError:
         logger.warning(
-            "openai_embedding_unavailable_degrading_to_pending",
+            "gemini_embedding_unavailable_degrading_to_pending",
             extra={"embedding_text_version": EMBEDDING_TEXT_VERSION},
         )
         return None
