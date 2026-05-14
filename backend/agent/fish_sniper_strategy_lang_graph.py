@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import nullcontext
 from datetime import UTC, datetime
@@ -19,7 +20,7 @@ from agent.fish_sniper_strategy_prompt_assembler import (
 )
 from agent.gemini_text_generation import (
     FishSniperGeminiInvocationError,
-    generate_text_from_gemini_with_system_and_user_prompts,
+    agenerate_text_from_gemini_with_system_and_user_prompts,
 )
 from agent.json_payload_extraction import extract_first_json_object_dict_from_llm_text
 from agent.langfuse_observability import (
@@ -45,7 +46,7 @@ from schemas.agent_schemas import (
 from settings import FishSniperBackendSettings
 from weather.port import WeatherSnapshotCachePort
 from weather.weather_errors import FishSniperWeatherUnavailableError
-from weather.weather_service import fetch_or_refresh_cached_current_weather_snapshot_for_region
+from weather.weather_service import afetch_or_refresh_cached_current_weather_snapshot_for_region
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def _read_terminal_http_status_from_state(state: FishSniperStrategyGraphState) -
     return state.get("terminal_http_status")
 
 
-def node_load_user_region_and_open_weather_map_snapshot(
+async def node_load_user_region_and_open_weather_map_snapshot(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Step 2 analogue: load `region` and weather (or manual weather) into graph state."""
@@ -127,7 +128,7 @@ def node_load_user_region_and_open_weather_map_snapshot(
                 "condition_code": manual_weather.condition_code,
             }
         try:
-            snapshot = fetch_or_refresh_cached_current_weather_snapshot_for_region(
+            snapshot = await afetch_or_refresh_cached_current_weather_snapshot_for_region(
                 profile_region_display_name=region,
                 fish_sniper_backend_settings=settings,
                 weather_snapshot_cache_port=weather_cache,
@@ -156,7 +157,7 @@ def _degraded_rag_state() -> FishSniperStrategyGraphState:
     }
 
 
-def node_search_personal_reference_log(
+async def node_search_personal_reference_log(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Step 3: embed query text, pgvector search, degrade to general branch on any soft failure."""
@@ -213,7 +214,11 @@ def node_search_personal_reference_log(
     )
     with span_cm:
         try:
-            query_vector = embedding_client.embed(text=query_text, task="query")
+            query_vector = await asyncio.to_thread(
+                embedding_client.embed,
+                text=query_text,
+                task="query",
+            )
         except FishSniperEmbeddingUnavailableError:
             logger.warning("gemini_embedding_unavailable_in_rag_query_degrading_to_general")
             print(
@@ -223,7 +228,8 @@ def node_search_personal_reference_log(
             return _degraded_rag_state()
 
         try:
-            hits = persistence_port.find_similar_fishing_log_for_user_id(
+            hits = await asyncio.to_thread(
+                persistence_port.find_similar_fishing_log_for_user_id,
                 fish_sniper_user_id=user_id,
                 target_species=request_body.target_species,
                 query_embedding=query_vector,
@@ -267,7 +273,7 @@ def node_search_personal_reference_log(
         }
 
 
-def node_assemble_prompts(
+async def node_assemble_prompts(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Step 4: personalized or general system prompt plus shared user JSON instructions."""
@@ -326,7 +332,7 @@ def node_assemble_prompts(
             "structured_strategy_user_prompt": user_prompt,
         }
 
-def node_invoke_gemini_for_structured_json_strategy(
+async def node_invoke_gemini_for_structured_json_strategy(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Step 5: first Gemini call."""
@@ -357,14 +363,14 @@ def node_invoke_gemini_for_structured_json_strategy(
                         "user_prompt": user_prompt,
                     },
                 ) as structured_generation:
-                    raw_text = generate_text_from_gemini_with_system_and_user_prompts(
+                    raw_text = await agenerate_text_from_gemini_with_system_and_user_prompts(
                         fish_sniper_backend_settings=settings,
                         system_instruction=system_prompt,
                         user_prompt=user_prompt,
                     )
                     structured_generation.update(output=raw_text)
             else:
-                raw_text = generate_text_from_gemini_with_system_and_user_prompts(
+                raw_text = await agenerate_text_from_gemini_with_system_and_user_prompts(
                     fish_sniper_backend_settings=settings,
                     system_instruction=system_prompt,
                     user_prompt=user_prompt,
@@ -380,7 +386,7 @@ def node_invoke_gemini_for_structured_json_strategy(
         return {"raw_structured_strategy_llm_output": raw_text}
 
 
-def node_parse_and_validate_structured_json_strategy(
+async def node_parse_and_validate_structured_json_strategy(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Step 6: JSON validation with bounded retries (retry_count)."""
@@ -447,7 +453,7 @@ def route_after_load_region_and_weather(
     return "continue"
 
 
-def node_no_op_pipeline_terminal_stop(
+async def node_no_op_pipeline_terminal_stop(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """LangGraph requires a node for early exits; terminal metadata already lives on state."""
@@ -456,7 +462,7 @@ def node_no_op_pipeline_terminal_stop(
     return {}
 
 
-def node_finalize_success_response_model(
+async def node_finalize_success_response_model(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Build Pydantic success response."""
@@ -502,7 +508,7 @@ def node_finalize_success_response_model(
     return {"success_response_body": success.model_dump(mode="json")}
 
 
-def node_finalize_fallback_response_model(
+async def node_finalize_fallback_response_model(
     state: FishSniperStrategyGraphState,
 ) -> FishSniperStrategyGraphState:
     """Build fallback envelope after JSON validation exhausts retries."""
@@ -613,7 +619,7 @@ def _fish_sniper_langfuse_trace_output_summary_from_final_state(
     return {"outcome": "unknown"}
 
 
-def invoke_fish_sniper_strategy_graph(
+async def invoke_fish_sniper_strategy_graph(
     *,
     fish_sniper_user_id: UUID,
     parsed_request_body: GenerateBassStrategyRequestBody,
@@ -653,7 +659,7 @@ def invoke_fish_sniper_strategy_graph(
     )
     try:
         with root_cm:
-            final_state = _compiled_fish_sniper_strategy_graph.invoke(initial_state)
+            final_state = await _compiled_fish_sniper_strategy_graph.ainvoke(initial_state)
             if langfuse_client is not None:
                 langfuse_client.update_current_trace(
                     name="fish_sniper_strategy",
@@ -665,6 +671,9 @@ def invoke_fish_sniper_strategy_graph(
                     tags=["p2", "bass-strategy"],
                 )
     finally:
-        flush_langfuse_client_best_effort(langfuse_client=langfuse_client)
+        await asyncio.to_thread(
+            flush_langfuse_client_best_effort,
+            langfuse_client=langfuse_client,
+        )
 
     return final_state

@@ -49,7 +49,7 @@ router = APIRouter()
     },
 )
 @fish_sniper_apply_api_rate_limit("30/hour")
-def handle_generate_bass_lure_strategy_request(
+async def handle_generate_bass_lure_strategy_request(
     request: Request,
     request_body: GenerateBassStrategyRequestBody,
     fish_sniper_user_id: FishSniperUserIdDep,
@@ -60,7 +60,7 @@ def handle_generate_bass_lure_strategy_request(
 ) -> GenerateBassStrategySuccessResponseBody | GenerateBassStrategyFallbackResponseBody:
     _ = request
     reference_time_utc = reference_time_utc_callable()
-    final_state = invoke_fish_sniper_strategy_graph(
+    final_state = await invoke_fish_sniper_strategy_graph(
         fish_sniper_user_id=fish_sniper_user_id,
         parsed_request_body=request_body,
         fish_sniper_backend_settings=fish_sniper_backend_settings,

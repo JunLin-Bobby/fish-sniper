@@ -48,7 +48,8 @@ def _base_state(
     }
 
 
-def test_rag_node_returns_empty_when_embedding_transient_fails() -> None:
+@pytest.mark.asyncio
+async def test_rag_node_returns_empty_when_embedding_transient_fails() -> None:
     adapter = InMemoryFishSniperPersistenceAdapter()
     user = adapter.insert_user_row_for_normalized_email(normalized_email_address="g1@example.com")
     request = GenerateBassStrategyRequestBody(
@@ -73,12 +74,13 @@ def test_rag_node_returns_empty_when_embedding_transient_fails() -> None:
         request=request,
         user_id=user.fish_sniper_user_id,
     )
-    out = node_search_personal_reference_log(state)
+    out = await node_search_personal_reference_log(state)
     assert out["has_personal_log"] is False
     assert out["retrieved_log_count"] == 0
 
 
-def test_rag_node_returns_empty_when_persistence_fails() -> None:
+@pytest.mark.asyncio
+async def test_rag_node_returns_empty_when_persistence_fails() -> None:
     class FlakyPersistence(InMemoryFishSniperPersistenceAdapter):
         def find_similar_fishing_log_for_user_id(self, **_kwargs):
             raise FishSniperPersistenceUnavailableError("db")
@@ -104,11 +106,12 @@ def test_rag_node_returns_empty_when_persistence_fails() -> None:
         request=request,
         user_id=user.fish_sniper_user_id,
     )
-    out = node_search_personal_reference_log(state)
+    out = await node_search_personal_reference_log(state)
     assert out["has_personal_log"] is False
 
 
-def test_rag_node_propagates_misconfigured_embedding_error() -> None:
+@pytest.mark.asyncio
+async def test_rag_node_propagates_misconfigured_embedding_error() -> None:
     adapter = InMemoryFishSniperPersistenceAdapter()
     user = adapter.insert_user_row_for_normalized_email(normalized_email_address="g3@example.com")
     request = GenerateBassStrategyRequestBody(
@@ -134,10 +137,11 @@ def test_rag_node_propagates_misconfigured_embedding_error() -> None:
         user_id=user.fish_sniper_user_id,
     )
     with pytest.raises(FishSniperEmbeddingMisconfiguredError):
-        node_search_personal_reference_log(state)
+        await node_search_personal_reference_log(state)
 
 
-def test_rag_node_selects_top_hit_when_logs_exist() -> None:
+@pytest.mark.asyncio
+async def test_rag_node_selects_top_hit_when_logs_exist() -> None:
     adapter = InMemoryFishSniperPersistenceAdapter()
     user = adapter.insert_user_row_for_normalized_email(normalized_email_address="g4@example.com")
     now = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
@@ -205,7 +209,7 @@ def test_rag_node_selects_top_hit_when_logs_exist() -> None:
         request=request,
         user_id=user.fish_sniper_user_id,
     )
-    out = node_search_personal_reference_log(state)
+    out = await node_search_personal_reference_log(state)
     assert out["has_personal_log"] is True
     assert out["selected_reference_log"].log_id == log_close
     assert out["retrieved_log_count"] == 2

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import date, datetime
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -95,11 +95,10 @@ def _bearer_headers_for_user(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph.generate_text_from_gemini_with_system_and_user_prompts",
-    return_value=_STRATEGY_LLM_JSON,
+    "agent.fish_sniper_strategy_lang_graph.agenerate_text_from_gemini_with_system_and_user_prompts",
+    new=AsyncMock(return_value=_STRATEGY_LLM_JSON),
 )
 def test_post_strategy_with_matching_log_returns_referenced_log(
-    _mock_gemini: object,
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
@@ -158,11 +157,10 @@ def test_post_strategy_with_matching_log_returns_referenced_log(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph.generate_text_from_gemini_with_system_and_user_prompts",
-    return_value=_STRATEGY_LLM_JSON,
+    "agent.fish_sniper_strategy_lang_graph.agenerate_text_from_gemini_with_system_and_user_prompts",
+    new=AsyncMock(return_value=_STRATEGY_LLM_JSON),
 )
 def test_post_strategy_without_done_logs_returns_zero_rag(
-    _mock_gemini: object,
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
