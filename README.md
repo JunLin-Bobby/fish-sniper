@@ -13,7 +13,7 @@
 
 
 <!-- ### Strategy page -->
-[Strategy screen](images/strategy-demo.png)
+![Strategy screen](images/strategy-demo.png)
 
 
 ---
