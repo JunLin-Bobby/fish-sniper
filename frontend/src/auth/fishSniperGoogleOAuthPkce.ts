@@ -101,7 +101,8 @@ export function buildGoogleAuthorizeUrl(options: {
     code_challenge_method: 'S256',
     state: options.state,
     access_type: 'online',
-    prompt: 'select_account',
+    // Force account picker + consent on every sign-in (Google skips consent if omitted).
+    prompt: 'select_account consent',
   })
   return `${GOOGLE_OAUTH_AUTHORIZE_ENDPOINT_URL}?${queryParameters.toString()}`
 }
