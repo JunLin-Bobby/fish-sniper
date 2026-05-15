@@ -17,6 +17,7 @@ from routes.agent_routes import router as agent_router
 from routes.auth_routes import router as auth_router
 from routes.log_routes import router as log_router
 from routes.user_preferences_routes import router as user_preferences_router
+from routes.users_account_routes import router as users_account_router
 from routes.weather_routes import router as weather_router
 
 
@@ -62,6 +63,7 @@ def create_fish_sniper_app() -> FastAPI:
 
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(user_preferences_router, prefix="/users", tags=["users"])
+    app.include_router(users_account_router, prefix="/users", tags=["users"])
     app.include_router(log_router, prefix="/logs", tags=["logs"])
     app.include_router(weather_router, prefix="/weather", tags=["weather"])
     app.include_router(agent_router, prefix="/agent", tags=["agent"])

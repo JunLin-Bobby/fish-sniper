@@ -121,6 +121,27 @@ class FishSniperPersistencePort(Protocol):
     ) -> FishSniperUserRow:
         """Insert a new user row and return it."""
 
+    def fetch_user_row_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> FishSniperUserRow | None:
+        """Return the user row for an id, if present."""
+
+    def delete_fish_sniper_user_account_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> bool:
+        """Permanently delete the user row; returns True if a row was removed."""
+
+    def delete_otp_codes_for_normalized_email(
+        self,
+        *,
+        normalized_email_address: str,
+    ) -> None:
+        """Best-effort removal of OTP rows for an email (idempotent)."""
+
     def fetch_user_preferences_row_for_user_id(
         self,
         *,

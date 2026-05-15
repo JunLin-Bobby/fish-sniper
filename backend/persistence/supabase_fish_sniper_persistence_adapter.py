@@ -250,6 +250,56 @@ class SupabaseFishSniperPersistenceAdapter:
             logger.exception("Supabase user insert failed")
             raise FishSniperPersistenceUnavailableError("user insert failed") from exc
 
+    def fetch_user_row_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> FishSniperUserRow | None:
+        try:
+            response = (
+                self._client.table("users")
+                .select("id,email")
+                .eq("id", str(fish_sniper_user_id))
+                .limit(1)
+                .execute()
+            )
+            if not response.data:
+                return None
+            row = response.data[0]
+            return FishSniperUserRow(
+                fish_sniper_user_id=UUID(str(row["id"])),
+                normalized_email_address=str(row["email"]),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Supabase user lookup by id failed")
+            raise FishSniperPersistenceUnavailableError("user lookup failed") from exc
+
+    def delete_fish_sniper_user_account_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> bool:
+        try:
+            delete_response = (
+                self._client.table("users").delete().eq("id", str(fish_sniper_user_id)).execute()
+            )
+            deleted_rows = delete_response.data or []
+            return len(deleted_rows) > 0
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Supabase user delete failed")
+            raise FishSniperPersistenceUnavailableError("user delete failed") from exc
+
+    def delete_otp_codes_for_normalized_email(
+        self,
+        *,
+        normalized_email_address: str,
+    ) -> None:
+        try:
+            self._client.table("otp_codes").delete().eq("email", normalized_email_address).execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Supabase OTP cleanup failed for deleted account")
+            raise FishSniperPersistenceUnavailableError("otp cleanup failed") from exc
+
     def fetch_user_preferences_row_for_user_id(
         self,
         *,

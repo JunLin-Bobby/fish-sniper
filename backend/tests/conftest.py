@@ -126,6 +126,51 @@ class InMemoryFishSniperPersistenceAdapter:
         self._user_row_by_normalized_email[normalized_email_address] = row
         return row
 
+    def fetch_user_row_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> FishSniperUserRow | None:
+        for row in self._user_row_by_normalized_email.values():
+            if row.fish_sniper_user_id == fish_sniper_user_id:
+                return row
+        return None
+
+    def delete_fish_sniper_user_account_for_user_id(
+        self,
+        *,
+        fish_sniper_user_id: UUID,
+    ) -> bool:
+        user_row = self.fetch_user_row_for_user_id(fish_sniper_user_id=fish_sniper_user_id)
+        if user_row is None:
+            return False
+        del self._user_row_by_normalized_email[user_row.normalized_email_address]
+        self._preferences_row_by_user_id.pop(fish_sniper_user_id, None)
+        log_ids_to_remove = {
+            log_row.log_id
+            for log_row in self._fishing_log_row_list
+            if log_row.fish_sniper_user_id == fish_sniper_user_id
+        }
+        self._fishing_log_row_list = [
+            log_row
+            for log_row in self._fishing_log_row_list
+            if log_row.fish_sniper_user_id != fish_sniper_user_id
+        ]
+        for log_id in log_ids_to_remove:
+            self._embedding_by_log_id.pop(log_id, None)
+        return True
+
+    def delete_otp_codes_for_normalized_email(
+        self,
+        *,
+        normalized_email_address: str,
+    ) -> None:
+        self._otp_challenge_row_list = [
+            otp_row
+            for otp_row in self._otp_challenge_row_list
+            if otp_row["normalized_email_address"] != normalized_email_address
+        ]
+
     def fetch_user_preferences_row_for_user_id(
         self,
         *,

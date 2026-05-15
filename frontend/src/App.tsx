@@ -10,6 +10,9 @@ import { FishSniperGoogleOAuthCallbackPage } from './pages/FishSniperGoogleOAuth
 import { FishSniperMyLogsPage } from './pages/FishSniperMyLogsPage.tsx'
 import { FishSniperOnboardingRegionPage } from './pages/FishSniperOnboardingRegionPage.tsx'
 import { FishSniperStrategyPage } from './pages/FishSniperStrategyPage.tsx'
+import { FishSniperSettingsDeleteAccountPanel } from './pages/settings/FishSniperSettingsDeleteAccountPanel.tsx'
+import { FishSniperSettingsLayoutPage } from './pages/settings/FishSniperSettingsLayoutPage.tsx'
+import { FishSniperSettingsProfilePanel } from './pages/settings/FishSniperSettingsProfilePanel.tsx'
 
 function FishSniperGoogleOAuthCallbackRoute(options: {
   apiBaseUrl: string
@@ -128,6 +131,8 @@ export default function App() {
           <FishSniperSignedInAppShell
             fishSniperApiBaseUrl={fishSniperApiBaseUrl}
             fishSniperAccessTokenJwt={fishSniperAuthSession.accessTokenJwt}
+            userPreferences={loadedUserPreferences}
+            reloadUserPreferences={fishSniperUserPreferencesRemote.reloadUserPreferences}
             onSignOut={fishSniperAuthSession.clearAccessTokenJwt}
           />
         }
@@ -135,6 +140,11 @@ export default function App() {
         <Route index element={<Navigate to="/strategy" replace />} />
         <Route path="strategy" element={<FishSniperStrategyPage />} />
         <Route path="logs" element={<FishSniperMyLogsPage />} />
+        <Route path="settings" element={<FishSniperSettingsLayoutPage />}>
+          <Route index element={<Navigate to="profile" replace />} />
+          <Route path="profile" element={<FishSniperSettingsProfilePanel />} />
+          <Route path="delete-account" element={<FishSniperSettingsDeleteAccountPanel />} />
+        </Route>
       </Route>
     </Routes>
   )

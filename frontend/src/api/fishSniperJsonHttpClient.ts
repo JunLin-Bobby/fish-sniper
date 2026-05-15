@@ -97,6 +97,41 @@ export async function postJsonWithFishSniperApi<TResponse>(options: {
   }
 }
 
+export async function deleteJsonWithFishSniperApi(options: {
+  apiBaseUrl: string
+  path: string
+  requestBody: unknown
+  accessTokenJwt: string
+  timeoutMs?: number
+}): Promise<void> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_JSON_REQUEST_TIMEOUT_MS
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const httpResponse = await fetch(`${options.apiBaseUrl}${options.path}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${options.accessTokenJwt}`,
+      },
+      body: JSON.stringify(options.requestBody),
+      signal: controller.signal,
+    })
+    const responseBodyText = await httpResponse.text()
+    if (!httpResponse.ok) {
+      const friendlyMessage = await parseFishSniperErrorMessageFromResponseBody(responseBodyText)
+      throw new FishSniperHttpStatusError(httpResponse.status, friendlyMessage)
+    }
+  } catch (unknownError) {
+    if (unknownError instanceof DOMException && unknownError.name === 'AbortError') {
+      throw new FishSniperHttpTimeoutError('Request timed out. Check your connection and try again.')
+    }
+    throw unknownError
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 export async function getJsonWithFishSniperApi<TResponse>(options: {
   apiBaseUrl: string
   path: string
