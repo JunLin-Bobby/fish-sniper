@@ -4,7 +4,7 @@
 
 > A full-stack AI fishing strategy assistant — built end-to-end as a personal project to explore LangGraph agent pipelines, RAG with pgvector, and production-grade FastAPI architecture.
 
-**⚡ Backend:** Railway &nbsp;|&nbsp; **☁️ Frontend:** Cloudflare Pages
+🌐 Live demo: https://fish-sniper.pages.dev  |  ⚡ Backend: Railway  |  ☁️ Frontend: Cloudflare Pages
 
 ---
 
