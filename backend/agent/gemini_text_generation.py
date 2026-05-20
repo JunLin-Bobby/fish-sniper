@@ -42,7 +42,7 @@ def generate_text_from_gemini_with_system_and_user_prompts(
             contents=user_prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
-                temperature=0.4,
+                temperature=0.7,
             ),
         )
     except genai_errors.APIError as exc:

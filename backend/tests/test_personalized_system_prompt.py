@@ -59,9 +59,10 @@ def test_personalized_system_prompt_contains_reference_block_and_fields() -> Non
 
 
 def test_general_system_prompt_unchanged() -> None:
-    assert "no past records" in assembler_build_general_best_practice_system_prompt_for_bass_strategy(
+    prompt_text = assembler_build_general_best_practice_system_prompt_for_bass_strategy(
         target_species="Largemouth Bass",
     )
+    assert "no past records" in prompt_text
 
 
 def test_shared_user_prompt_default_matches_non_personalized_confidence_instruction() -> None:

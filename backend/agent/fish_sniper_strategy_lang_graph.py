@@ -190,7 +190,8 @@ async def node_search_personal_reference_log(
     #     f"target_species={request_body.target_species!r}\n"
     #     f"water_depth_m={request_body.water_depth_m}\n"
     #     f"weather: temp_c={state['temperature_celsius']}, wind_ms="
-    #     f"{state['wind_speed_meters_per_second']}, pressure_hpa={state['pressure_hectopascals']}, "
+    #     f"{state['wind_speed_meters_per_second']}, "
+    #     f"pressure_hpa={state['pressure_hectopascals']}, "
     #     f"condition={state['condition_code']!r}\n"
     #     "----- end input summary -----",
     #     flush=True,
@@ -368,7 +369,7 @@ async def node_invoke_gemini_for_structured_json_strategy(
                 with langfuse_client.start_as_current_generation(
                     name="gemini_structured_strategy",
                     model=settings.gemini_model,
-                    model_parameters={"temperature": 0.4},
+                    model_parameters={"temperature": 0.7},
                     input={
                         "system_instruction_chars": len(system_prompt),
                         "user_prompt_chars": len(user_prompt),
