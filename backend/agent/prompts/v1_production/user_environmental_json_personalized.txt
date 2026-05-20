@@ -1,0 +1,27 @@
+Environmental conditions:
+- Weather region: {region}
+- Fishing spot (today): {fishing_location}
+- Fishing scene: {fishing_scene}
+- Water depth: {water_depth_m}m
+- Temperature: {temperature_c}°C
+- Pressure: {pressure_hpa} hPa
+- Wind speed: {wind_speed_ms} m/s
+- Weather: {condition_code}
+- Target species: {target_species}
+
+Respond ONLY with a valid JSON object containing exactly these fields:
+{{
+  "fish_state": "2–4 short English sentences on how the bass are likely behaving today and why, tied to the listed conditions (no markdown, no emoji).",
+  "confidence_note": "One concise English sentence; explicitly reference the angler's reference past trip (date and location) and tie your rationale to that trip plus today's conditions.",
+  "recommendations": [
+    {{
+      "lure_type": "Primary lure category",
+      "lure_color": "Color or pattern",
+      "retrieve_technique": "Brief retrieve: cadence, speed, pauses (one or two sentences max)."
+    }},
+    {{ ... second option ... }},
+    {{ ... third option ... }}
+  ]
+}}
+The recommendations array MUST contain exactly three objects, ordered best-first (primary, secondary, tertiary). Each string field must be non-empty.
+Do not include any explanation outside the JSON.

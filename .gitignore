@@ -15,5 +15,4 @@ frontend/node_modules/
 frontend/dist/
 
 # Private product docs
-prompts/
 docs/

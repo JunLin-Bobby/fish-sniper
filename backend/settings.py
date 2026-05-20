@@ -163,6 +163,14 @@ class FishSniperBackendSettings(BaseSettings):
         ),
     )
 
+    strategy_prompt_version: str = Field(
+        default="v1_production",
+        description=(
+            "Bass strategy prompt template bundle under backend/agent/prompts/<version>/. "
+            "Change locally to compare CoT experiments without altering API I/O."
+        ),
+    )
+
 
 @lru_cache
 def get_fish_sniper_backend_settings() -> FishSniperBackendSettings:

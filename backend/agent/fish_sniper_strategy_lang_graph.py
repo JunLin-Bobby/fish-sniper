@@ -14,9 +14,9 @@ from pydantic import ValidationError
 from typing_extensions import TypedDict
 
 from agent.fish_sniper_strategy_prompt_assembler import (
-    build_general_best_practice_system_prompt_for_bass_strategy,
-    build_personalized_system_prompt_with_reference_log_for_bass_strategy,
-    build_shared_user_prompt_for_environmental_json_strategy,
+    assembler_build_general_best_practice_system_prompt_for_bass_strategy,
+    assembler_build_personalized_system_prompt_with_reference_log_for_bass_strategy,
+    assembler_build_shared_user_prompt_for_environmental_json_strategy,
 )
 from agent.gemini_text_generation import (
     FishSniperGeminiInvocationError,
@@ -181,27 +181,27 @@ async def node_search_personal_reference_log(
         condition_code=state["condition_code"],
     )
 
-    print(
-        "\n----- [Strategy Step 3] input summary -----\n"
-        f"user_id={user_id}\n"
-        f"region={request_body.region!r}\n"
-        f"fishing_location={request_body.fishing_location!r}\n"
-        f"fishing_scene={request_body.fishing_scene!r}\n"
-        f"target_species={request_body.target_species!r}\n"
-        f"water_depth_m={request_body.water_depth_m}\n"
-        f"weather: temp_c={state['temperature_celsius']}, wind_ms="
-        f"{state['wind_speed_meters_per_second']}, pressure_hpa={state['pressure_hectopascals']}, "
-        f"condition={state['condition_code']!r}\n"
-        "----- end input summary -----",
-        flush=True,
-    )
-    print(
-        "\n----- [Strategy Step 3] composed query embedding text "
-        f"(length={len(query_text)}) -----\n"
-        f"{query_text}\n"
-        "----- end composed query embedding text -----",
-        flush=True,
-    )
+    # print(
+    #     "\n----- [Strategy Step 3] input summary -----\n"
+    #     f"user_id={user_id}\n"
+    #     f"region={request_body.region!r}\n"
+    #     f"fishing_location={request_body.fishing_location!r}\n"
+    #     f"fishing_scene={request_body.fishing_scene!r}\n"
+    #     f"target_species={request_body.target_species!r}\n"
+    #     f"water_depth_m={request_body.water_depth_m}\n"
+    #     f"weather: temp_c={state['temperature_celsius']}, wind_ms="
+    #     f"{state['wind_speed_meters_per_second']}, pressure_hpa={state['pressure_hectopascals']}, "
+    #     f"condition={state['condition_code']!r}\n"
+    #     "----- end input summary -----",
+    #     flush=True,
+    # )
+    # print(
+    #     "\n----- [Strategy Step 3] composed query embedding text "
+    #     f"(length={len(query_text)}) -----\n"
+    #     f"{query_text}\n"
+    #     "----- end composed query embedding text -----",
+    #     flush=True,
+    # )
 
     langfuse_client = state.get("langfuse_client")
     span_cm = (
@@ -288,24 +288,35 @@ async def node_assemble_prompts(
     span_cm = (
         langfuse_client.start_as_current_span(
             name="build_system_prompt",
-            metadata={"step": "4", "branch": "personalized" if has_personal_log else "general"},
+            metadata={
+                "step": "4",
+                "branch": "personalized" if has_personal_log else "general",
+                "prompt_version": state["fish_sniper_backend_settings"].strategy_prompt_version,
+            },
         )
         if langfuse_client is not None
         else nullcontext()
     )
     with span_cm:
+        settings: FishSniperBackendSettings = state["fish_sniper_backend_settings"]
+        prompt_version = settings.strategy_prompt_version
+
         if has_personal_log:
             reference_log = state["selected_reference_log"]
-            system_prompt = build_personalized_system_prompt_with_reference_log_for_bass_strategy(
-                target_species=request_body.target_species,
-                reference_log=reference_log,
+            system_prompt = (
+                assembler_build_personalized_system_prompt_with_reference_log_for_bass_strategy(
+                    target_species=request_body.target_species,
+                    reference_log=reference_log,
+                    prompt_version=prompt_version,
+                )
             )
         else:
-            system_prompt = build_general_best_practice_system_prompt_for_bass_strategy(
+            system_prompt = assembler_build_general_best_practice_system_prompt_for_bass_strategy(
                 target_species=request_body.target_species,
+                prompt_version=prompt_version,
             )
 
-        user_prompt = build_shared_user_prompt_for_environmental_json_strategy(
+        user_prompt = assembler_build_shared_user_prompt_for_environmental_json_strategy(
             region=state["profile_region_display_name"],
             fishing_location=request_body.fishing_location.strip(),
             fishing_scene=request_body.fishing_scene.strip(),
@@ -316,11 +327,13 @@ async def node_assemble_prompts(
             condition_code=state["condition_code"],
             target_species=request_body.target_species,
             personalized=has_personal_log,
+            prompt_version=prompt_version,
         )
 
         print(
             "\n----- [Strategy Step 4] final system prompt "
             f"(branch={'personalized' if has_personal_log else 'general'}, "
+            f"prompt_version={prompt_version}, "
             f"chars={len(system_prompt)}) -----\n"
             f"{system_prompt}\n"
             "----- end final system prompt -----",
