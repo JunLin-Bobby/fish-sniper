@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import type {
@@ -7,6 +7,7 @@ import type {
   GenerateBassStrategySuccessResponsePayload,
 } from '../api/fishSniperApiTypes.ts'
 import type { FishSniperSignedInOutletContextValue } from '../layout/fishSniperSignedInOutletContext.ts'
+import { useFishSniperAgentLlmModelsRemoteState } from '../hooks/useFishSniperAgentLlmModelsRemoteState.ts'
 import { useFishSniperAutoWeatherSnapshotRemoteState } from '../hooks/useFishSniperAutoWeatherSnapshotRemoteState.ts'
 import { useFishSniperSubmitBassStrategyMutation } from '../hooks/useFishSniperSubmitBassStrategyMutation.ts'
 
@@ -44,6 +45,14 @@ export function FishSniperStrategyPage() {
     useOutletContext<FishSniperSignedInOutletContextValue>()
 
   const [weatherMode, setWeatherMode] = useState<'auto' | 'manual'>('auto')
+  const [selectedLlmModelId, setSelectedLlmModelId] = useState<string | null>(null)
+  const {
+    agentLlmModelsRemoteStatus,
+    agentLlmModelsPayload,
+  } = useFishSniperAgentLlmModelsRemoteState({
+    fishSniperApiBaseUrl,
+    fishSniperAccessTokenJwt,
+  })
   const {
     autoWeatherRemoteStatus,
     autoWeatherSnapshotPayload,
@@ -92,11 +101,37 @@ export function FishSniperStrategyPage() {
     Number.isFinite(parsedManualPressureHectopascals) &&
     parsedManualPressureHectopascals > 0
 
+  const isLlmModelSelectionReady =
+    agentLlmModelsRemoteStatus === 'success' &&
+    selectedLlmModelId !== null &&
+    (agentLlmModelsPayload?.models.some((model) => model.id === selectedLlmModelId) ?? false)
+
   const isFormReadyToSubmit =
     weatherRegionInput.trim().length > 0 &&
     fishingLocationInput.trim().length > 0 &&
     isWaterDepthValid &&
-    (weatherMode === 'auto' || isManualWeatherInputValid)
+    (weatherMode === 'auto' || isManualWeatherInputValid) &&
+    isLlmModelSelectionReady
+
+  useEffect(() => {
+    if (agentLlmModelsRemoteStatus !== 'success' || !agentLlmModelsPayload) {
+      return
+    }
+    const { models, default_model_id: defaultModelId } = agentLlmModelsPayload
+    if (models.length === 0) {
+      setSelectedLlmModelId(null)
+      return
+    }
+    setSelectedLlmModelId((current) => {
+      if (current !== null && models.some((model) => model.id === current)) {
+        return current
+      }
+      if (models.some((model) => model.id === defaultModelId)) {
+        return defaultModelId
+      }
+      return models[0]?.id ?? null
+    })
+  }, [agentLlmModelsRemoteStatus, agentLlmModelsPayload])
 
   const glassPanelClassName =
     'rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-2xl shadow-[0_24px_70px_-34px_rgba(2,6,23,0.95)]'
@@ -106,6 +141,9 @@ export function FishSniperStrategyPage() {
     'rounded-xl border border-slate-600/50 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition-colors duration-200 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25'
   const chipClassName =
     'inline-flex items-center rounded-full border border-white/15 bg-slate-900/70 px-2.5 py-1 text-[11px] font-medium text-slate-300'
+  const headerMetaLabelClassName = 'text-sm font-semibold text-slate-100 sm:text-base'
+  const headerSelectClassName =
+    'min-w-[10.5rem] cursor-pointer rounded-xl border border-white/20 bg-slate-950/80 px-3 py-2 text-sm font-medium text-slate-100 outline-none transition-colors duration-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 sm:min-w-[12rem] sm:text-base'
 
   function applyAutoSnapshotToManualWeatherFields(): void {
     if (!autoWeatherSnapshotPayload) {
@@ -142,6 +180,10 @@ export function FishSniperStrategyPage() {
       }
     }
 
+    if (selectedLlmModelId) {
+      requestPayload.llm_model_id = selectedLlmModelId
+    }
+
     const submitResult = await submitBassStrategyRequest(requestPayload)
 
     if (submitResult.outcome === 'success') {
@@ -171,9 +213,41 @@ export function FishSniperStrategyPage() {
               Keep your existing inputs, run a fresh weather-aware strategy, and get a clean tactical output.
             </p>
           </div>
-          <div className="grid gap-2 text-xs text-slate-300">
-            <span className={chipClassName}>Theme: Glass + Dark</span>
-            <span className={chipClassName}>{weatherMode === 'auto' ? 'Weather: Auto' : 'Weather: Manual'}</span>
+          <div className="flex flex-wrap items-center justify-end gap-4 sm:gap-6">
+            <span className={headerMetaLabelClassName}>
+              {weatherMode === 'auto' ? 'Weather: Auto' : 'Weather: Manual'}
+            </span>
+            <label className={`flex items-center gap-2.5 ${headerMetaLabelClassName}`}>
+              <span className="shrink-0">Model:</span>
+              <select
+                className={headerSelectClassName}
+                value={selectedLlmModelId ?? ''}
+                disabled={
+                  agentLlmModelsRemoteStatus === 'loading' ||
+                  agentLlmModelsRemoteStatus === 'error' ||
+                  (agentLlmModelsPayload?.models.length ?? 0) === 0
+                }
+                onChange={(event) => setSelectedLlmModelId(event.target.value)}
+                aria-label="Strategy LLM model"
+              >
+                {agentLlmModelsRemoteStatus === 'loading' ? (
+                  <option value="">Loading models…</option>
+                ) : null}
+                {agentLlmModelsRemoteStatus === 'error' ? (
+                  <option value="">Models unavailable</option>
+                ) : null}
+                {agentLlmModelsRemoteStatus === 'success' &&
+                agentLlmModelsPayload &&
+                agentLlmModelsPayload.models.length === 0 ? (
+                  <option value="">No models configured</option>
+                ) : null}
+                {agentLlmModelsPayload?.models.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.display_name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
       </header>

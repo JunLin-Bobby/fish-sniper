@@ -14,7 +14,7 @@ models:
   gpt-4o-mini:
     provider: openai
     model: gpt-4o-mini
-    display_name: GPT-4o Mini
+    display_name: gpt-5.4-mini
     temperature: 0.8
     api_key_env: OPENAI_API_KEY
     timeout_seconds: 120

@@ -18,7 +18,7 @@ from deps import (
 )
 from llm.models import LlmGenerationResult
 from main import create_fish_sniper_app
-from settings import get_fish_sniper_backend_settings
+from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
 from tests.conftest import FakeFishSniperEmbeddingClient, InMemoryFishSniperPersistenceAdapter
 
 _STRATEGY_LLM_JSON = json.dumps(
@@ -77,13 +77,29 @@ def _strategy_request_body() -> dict:
     }
 
 
+def _strategy_test_settings(
+    *,
+    gemini_api_key: str | None = "test-gemini-key",
+    openai_api_key: str | None = None,
+) -> FishSniperBackendSettings:
+    return get_fish_sniper_backend_settings().model_copy(
+        update={
+            "gemini_api_key": gemini_api_key,
+            "openai_api_key": openai_api_key,
+        },
+    )
+
+
 def _install_strategy_dependency_overrides(
     app,
     *,
     fish_sniper_persistence: InMemoryFishSniperPersistenceAdapter,
     reference_time_utc_callable: Callable[[], datetime],
     embedding_client: FakeFishSniperEmbeddingClient,
+    backend_settings: FishSniperBackendSettings | None = None,
 ) -> None:
+    settings = backend_settings or _strategy_test_settings()
+    app.dependency_overrides[get_fish_sniper_backend_settings] = lambda: settings
     app.dependency_overrides[get_fish_sniper_persistence_port] = lambda: fish_sniper_persistence
     app.dependency_overrides[get_reference_time_utc_callable] = lambda: reference_time_utc_callable
     app.dependency_overrides[get_fish_sniper_embedding_client] = lambda: embedding_client
@@ -199,3 +215,115 @@ def test_post_strategy_without_done_logs_returns_zero_rag(
     payload = response.json()
     assert payload["rag_logs_used"] == 0
     assert payload.get("referenced_log") in (None, {})
+
+
+@patch(
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
+)
+def test_post_strategy_unknown_llm_model_id_returns_400(
+    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
+) -> None:
+    now_utc, _ = frozen_clock
+    user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
+        normalized_email_address="bad-model@example.com",
+    )
+    app = create_fish_sniper_app()
+    _install_strategy_dependency_overrides(
+        app,
+        fish_sniper_persistence=in_memory_persistence_adapter,
+        reference_time_utc_callable=now_utc,
+        embedding_client=FakeFishSniperEmbeddingClient(vector=_dim1536(1.0, 0.0)),
+    )
+    client = TestClient(app)
+    body = _strategy_request_body()
+    body["llm_model_id"] = "not-in-catalog"
+
+    response = client.post(
+        "/agent/strategy",
+        headers=_bearer_headers_for_user(
+            fish_sniper_user_id=user_row.fish_sniper_user_id,
+            normalized_email_address=user_row.normalized_email_address,
+        ),
+        json=body,
+    )
+
+    assert response.status_code == 400
+    payload = response.json()
+    assert payload["code"] == "INVALID_PAYLOAD"
+    assert "Unknown llm_model_id" in payload["message"]
+
+
+@patch(
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
+)
+def test_post_strategy_openai_model_without_key_returns_503(
+    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
+) -> None:
+    now_utc, _ = frozen_clock
+    user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
+        normalized_email_address="no-openai@example.com",
+    )
+    app = create_fish_sniper_app()
+    _install_strategy_dependency_overrides(
+        app,
+        fish_sniper_persistence=in_memory_persistence_adapter,
+        reference_time_utc_callable=now_utc,
+        embedding_client=FakeFishSniperEmbeddingClient(vector=_dim1536(1.0, 0.0)),
+        backend_settings=_strategy_test_settings(openai_api_key=None),
+    )
+    client = TestClient(app)
+    body = _strategy_request_body()
+    body["llm_model_id"] = "gpt-4o-mini"
+
+    response = client.post(
+        "/agent/strategy",
+        headers=_bearer_headers_for_user(
+            fish_sniper_user_id=user_row.fish_sniper_user_id,
+            normalized_email_address=user_row.normalized_email_address,
+        ),
+        json=body,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": "Selected model is not configured for this environment",
+    }
+
+
+@patch(
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
+)
+def test_post_strategy_explicit_llm_model_id_succeeds(
+    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
+) -> None:
+    now_utc, _ = frozen_clock
+    user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
+        normalized_email_address="explicit-model@example.com",
+    )
+    app = create_fish_sniper_app()
+    _install_strategy_dependency_overrides(
+        app,
+        fish_sniper_persistence=in_memory_persistence_adapter,
+        reference_time_utc_callable=now_utc,
+        embedding_client=FakeFishSniperEmbeddingClient(vector=_dim1536(1.0, 0.0)),
+    )
+    client = TestClient(app)
+    body = _strategy_request_body()
+    body["llm_model_id"] = "gemini-flash"
+
+    response = client.post(
+        "/agent/strategy",
+        headers=_bearer_headers_for_user(
+            fish_sniper_user_id=user_row.fish_sniper_user_id,
+            normalized_email_address=user_row.normalized_email_address,
+        ),
+        json=body,
+    )
+
+    assert response.status_code == 200

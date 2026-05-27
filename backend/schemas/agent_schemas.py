@@ -48,6 +48,24 @@ class GenerateBassStrategyRequestBody(BaseModel):
         ),
     )
 
+    llm_model_id: str | None = Field(
+        default=None,
+        description=(
+            "Logical text-generation model id from the catalog (see GET /agent/models). "
+            "Omitted values use the catalog default_model_id."
+        ),
+    )
+
+    @field_validator("llm_model_id", mode="before")
+    @classmethod
+    def normalize_llm_model_id(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped if stripped else None
+        return value  # type: ignore[return-value]
+
     @model_validator(mode="after")
     def validate_non_empty_location_region_and_scene(self) -> GenerateBassStrategyRequestBody:
         if not self.region.strip():
@@ -166,3 +184,22 @@ class GenerateBassStrategyFallbackResponseBody(BaseModel):
     fallback: Literal[True] = Field(default=True, description="Signals degraded output.")
     message: str = Field(description="User-facing guidance to adjust inputs and retry.")
     generated_at: datetime = Field(description="UTC timestamp when the fallback was returned.")
+
+
+class ListedAgentLlmModelItem(BaseModel):
+    """One allowlisted text-generation model exposed to the strategy UI."""
+
+    id: str = Field(description="Logical catalog model id (POST /agent/strategy llm_model_id).")
+    display_name: str = Field(description="User-facing label for model pickers.")
+    provider: Literal["gemini", "openai"] = Field(description="LLM vendor for this catalog entry.")
+
+
+class ListAgentLlmModelsResponseBody(BaseModel):
+    """Available strategy LLM models for the current environment (keys configured in settings)."""
+
+    models: list[ListedAgentLlmModelItem] = Field(
+        description="Models whose API keys are set; empty when no provider is configured.",
+    )
+    default_model_id: str = Field(
+        description="Catalog default when POST /agent/strategy omits llm_model_id.",
+    )
