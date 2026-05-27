@@ -1,4 +1,4 @@
-"""Bass lure strategy agent route (LangGraph + Gemini)."""
+"""Bass lure strategy agent route (LangGraph + multi-provider LLM)."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from deps import (
     FishSniperPersistenceDep,
     FishSniperSettingsDep,
     ReferenceTimeUtcCallableDep,
+    TextGenerationRouterDep,
     get_fish_sniper_weather_snapshot_cache_port,
 )
 from rate_limiting import fish_sniper_apply_api_rate_limit
@@ -25,10 +26,10 @@ router = APIRouter()
 
 @router.post(
     "/strategy",
-    summary="Generate a bass lure strategy via LangGraph and Gemini",
+    summary="Generate a bass lure strategy via LangGraph",
     description=(
         "Runs the FishSniper agent pipeline (weather, optional RAG over fishing logs, "
-        "single Gemini JSON strategy). "
+        "single structured LLM JSON strategy). "
         "Send `region` for OpenWeatherMap; provide `manual_weather` to override OWM "
         "(e.g. what-if analysis or when OWM is unavailable)."
     ),
@@ -44,7 +45,9 @@ router = APIRouter()
         status.HTTP_401_UNAUTHORIZED: {"description": "Missing or invalid bearer token."},
         status.HTTP_429_TOO_MANY_REQUESTS: {"description": "Per-email rate limit exceeded."},
         status.HTTP_503_SERVICE_UNAVAILABLE: {
-            "description": "Database, weather, or Gemini is unavailable for this request.",
+            "description": (
+                "Database, weather, or the strategy LLM is unavailable for this request."
+            ),
         },
     },
 )
@@ -57,6 +60,7 @@ async def handle_generate_bass_lure_strategy_request(
     fish_sniper_backend_settings: FishSniperSettingsDep,
     reference_time_utc_callable: ReferenceTimeUtcCallableDep,
     embedding_client: FishSniperEmbeddingClientDep,
+    text_generation_router: TextGenerationRouterDep,
 ) -> GenerateBassStrategySuccessResponseBody | GenerateBassStrategyFallbackResponseBody:
     _ = request
     reference_time_utc = reference_time_utc_callable()
@@ -68,6 +72,7 @@ async def handle_generate_bass_lure_strategy_request(
         weather_snapshot_cache_port=get_fish_sniper_weather_snapshot_cache_port(),
         reference_time_utc=reference_time_utc,
         embedding_client=embedding_client,
+        text_generation_router=text_generation_router,
     )
 
     terminal_http_status = final_state.get("terminal_http_status")

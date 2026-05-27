@@ -16,6 +16,7 @@ from deps import (
     get_fish_sniper_persistence_port,
     get_reference_time_utc_callable,
 )
+from llm.models import LlmGenerationResult
 from main import create_fish_sniper_app
 from settings import get_fish_sniper_backend_settings
 from tests.conftest import FakeFishSniperEmbeddingClient, InMemoryFishSniperPersistenceAdapter
@@ -42,6 +43,14 @@ _STRATEGY_LLM_JSON = json.dumps(
             },
         ],
     },
+)
+
+_MOCK_STRATEGY_GENERATION_RESULT = LlmGenerationResult(
+    raw_text=_STRATEGY_LLM_JSON,
+    provider="gemini",
+    model_id="gemini-flash",
+    provider_model="test-model",
+    temperature=0.8,
 )
 
 
@@ -95,8 +104,8 @@ def _bearer_headers_for_user(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph.agenerate_text_from_gemini_with_system_and_user_prompts",
-    new=AsyncMock(return_value=_STRATEGY_LLM_JSON),
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_with_matching_log_returns_referenced_log(
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
@@ -157,8 +166,8 @@ def test_post_strategy_with_matching_log_returns_referenced_log(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph.agenerate_text_from_gemini_with_system_and_user_prompts",
-    new=AsyncMock(return_value=_STRATEGY_LLM_JSON),
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_without_done_logs_returns_zero_rag(
     in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
