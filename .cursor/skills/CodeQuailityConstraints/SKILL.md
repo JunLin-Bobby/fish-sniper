@@ -10,12 +10,15 @@ Code quality constraints (apply to all generated code):
 9. CORS must only allow the configured frontend origin, not wildcard `*`.
 10. Generated code must be compatible with Docker multi-stage build and Railway deployment.
 11. All code comments must be written in English.
-12. All naming must follow Document as Code principles — names must be specific and self-explanatory.
-    - Functions: describe the exact action and subject (e.g. `embedFishingLogToVector` not `embed`, `fetchCurrentWeatherByRegion` not `getWeather`, `generateBassLureStrategy` not `generate`)
-    - Variables: reflect the exact data they hold (e.g. `retrievedFishingLogList` not `data`, `agentRetryCount` not `count`, `pineconeUpsertResult` not `result`)
-    - React hooks: prefix with `use` and describe the resource (e.g. `useBassLureStrategy` not `useData`, `useFishingLogList` not `useLogs`)
-    - API route handlers: name after the operation and resource (e.g. `handleCreateFishingLog` not `handleCreate`, `handleGenerateBassStrategy` not `handleStrategy`)
-    - Avoid all generic names: `data`, `result`, `item`, `info`, `temp`, `obj`, `handle`, `process`, `manage`
+12. All naming must follow Document as Code principles —
+    names must be specific but not verbose — 
+    avoid restating the module, class, or parameter types 
+    that are already clear from context.
+
+    Good:   _build_registry(), _parse_models(), _has_api_key()
+    Bad:    _build_model_registry_from_parsed_yaml_document(),
+            _parse_model_config_by_id_from_yaml_models()
+   
 13. All FastAPI route handlers must include complete Swagger documentation using FastAPI's built-in parameters:
     - `summary`: one-line description of what the endpoint does (e.g. `summary="Generate bass lure strategy based on weather and fishing log"`)
     - `description`: multi-line explanation covering purpose, business logic, and any side effects

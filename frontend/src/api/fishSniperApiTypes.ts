@@ -57,6 +57,17 @@ export interface ManualWeatherRequestPayload {
   pressure_hpa: number
 }
 
+export interface ListedAgentLlmModelItemPayload {
+  id: string
+  display_name: string
+  provider: 'gemini' | 'openai'
+}
+
+export interface ListAgentLlmModelsResponsePayload {
+  models: ListedAgentLlmModelItemPayload[]
+  default_model_id: string
+}
+
 export interface GenerateBassStrategyRequestPayload {
   region: string
   fishing_location: string
@@ -64,6 +75,7 @@ export interface GenerateBassStrategyRequestPayload {
   fishing_scene: string
   target_species: FishSniperStrategyTargetSpecies
   manual_weather?: ManualWeatherRequestPayload | null
+  llm_model_id?: string | null
 }
 
 export interface WeatherSnapshotPayload {
