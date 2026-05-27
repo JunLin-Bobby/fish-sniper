@@ -123,3 +123,4 @@ def test_get_models_without_auth_returns_401() -> None:
     app = create_fish_sniper_app()
     response = TestClient(app).get("/agent/models")
     assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
