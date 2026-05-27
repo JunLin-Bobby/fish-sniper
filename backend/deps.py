@@ -11,6 +11,8 @@ from fastapi import Depends
 from email_delivery.port import TransactionalEmailSenderPort
 from email_delivery.resend_transactional_email_adapter import ResendTransactionalEmailSenderAdapter
 from embedding.port import FishSniperEmbeddingClient
+from llm.registry import ModelRegistry, load_registry
+from llm.router import TextGenerationRouter
 from persistence.port import FishSniperPersistencePort
 from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
 from weather.port import WeatherSnapshotCachePort
@@ -19,6 +21,8 @@ from weather.weather_service import create_default_in_memory_weather_cache
 _supabase_fish_sniper_persistence_singleton: FishSniperPersistencePort | None = None
 _fish_sniper_weather_snapshot_cache_singleton: WeatherSnapshotCachePort | None = None
 _fish_sniper_embedding_client_singleton: FishSniperEmbeddingClient | None = None
+_model_registry_singleton: ModelRegistry | None = None
+_text_generation_router_singleton: TextGenerationRouter | None = None
 
 
 def _default_reference_time_utc_callable() -> datetime:
@@ -117,6 +121,30 @@ def get_fish_sniper_embedding_client() -> FishSniperEmbeddingClient:
     return _fish_sniper_embedding_client_singleton
 
 
+def get_model_registry() -> ModelRegistry:
+    """Return the process-wide LLM model catalog (loaded from ``llm_models.yaml``)."""
+
+    global _model_registry_singleton
+
+    if _model_registry_singleton is None:
+        _model_registry_singleton = load_registry(
+            backend_settings=get_fish_sniper_backend_settings(),
+        )
+    return _model_registry_singleton
+
+
+def get_text_generation_router() -> TextGenerationRouter:
+    """Return the process-wide text-generation router (registry + provider adapters)."""
+
+    global _text_generation_router_singleton
+
+    if _text_generation_router_singleton is None:
+        _text_generation_router_singleton = TextGenerationRouter(
+            model_registry=get_model_registry(),
+        )
+    return _text_generation_router_singleton
+
+
 FishSniperSettingsDep = Annotated[
     FishSniperBackendSettings,
     Depends(get_fish_sniper_backend_settings),
@@ -140,6 +168,14 @@ OtpCodeGeneratorDep = Annotated[
 FishSniperEmbeddingClientDep = Annotated[
     FishSniperEmbeddingClient,
     Depends(get_fish_sniper_embedding_client),
+]
+ModelRegistryDep = Annotated[
+    ModelRegistry,
+    Depends(get_model_registry),
+]
+TextGenerationRouterDep = Annotated[
+    TextGenerationRouter,
+    Depends(get_text_generation_router),
 ]
 GoogleOAuthTokenExchangeCallableDep = Annotated[
     Callable[..., dict],

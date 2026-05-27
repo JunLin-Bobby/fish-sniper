@@ -1,0 +1,20 @@
+# Text-generation model catalog (no secrets — API keys live in settings / .env).
+# Override path via FishSniperBackendSettings.llm_models_config_path (LLM_MODELS_CONFIG_PATH).
+
+default_model_id: gemini-flash
+
+models:
+  gemini-flash:
+    provider: gemini
+    model: gemini-3-flash-preview
+    display_name: Gemini Flash
+    temperature: 0.8
+    api_key_env: GEMINI_API_KEY
+
+  gpt-4o-mini:
+    provider: openai
+    model: gpt-4o-mini
+    display_name: GPT-4o Mini
+    temperature: 0.8
+    api_key_env: OPENAI_API_KEY
+    timeout_seconds: 120

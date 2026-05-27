@@ -75,6 +75,17 @@ class FishSniperBackendSettings(BaseSettings):
         description="Google Gemini API key for strategy generation.",
     )
 
+    openai_api_key: str | None = Field(
+        default=None,
+        description="OpenAI API key for catalog models with api_key_env OPENAI_API_KEY.",
+    )
+
+    llm_models_config_path: str | None = Field(
+        default=None,
+        description="Optional override path to llm_models.yaml (tests or alternate catalog).",
+        validation_alias=AliasChoices("LLM_MODELS_CONFIG_PATH", "llm_models_config_path"),
+    )
+
     gemini_model: str = Field(
         default="gemini-3.0-flash",
         description="Gemini model id for structured JSON and battle plan summary.",
