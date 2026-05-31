@@ -12,6 +12,7 @@ DEFAULT_STRATEGY_PROMPT_VERSION = "v1_production"
 _REGISTERED_STRATEGY_PROMPT_VERSIONS: dict[str, Path] = {
     DEFAULT_STRATEGY_PROMPT_VERSION: _PROMPTS_ROOT / DEFAULT_STRATEGY_PROMPT_VERSION,
     "v2_production": _PROMPTS_ROOT / "v2_production",
+    "v3_production": _PROMPTS_ROOT / "v3_production",
 }
 
 
