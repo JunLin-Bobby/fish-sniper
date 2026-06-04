@@ -118,26 +118,6 @@ All DB operations go through a `FishSniperPersistencePort` Protocol. The Supabas
 - `SKIP_AUTH` guard in CI blocks accidental commits
 - All Supabase access via `service_role` key on the backend; **`fishing_logs`** has RLS enabled in the provisioning script (other tables follow `scripts/supabase_reset_full_environment.sql`)
 
----
-
-## 🚀 Running locally
-
-```bash
-# Backend
-cd backend
-python -m venv venv && source venv/bin/activate   # Windows: .\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-cp .env.example .env   # fill in your keys
-uvicorn main:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm install
-cp .env.example .env
-npm run dev
-```
-
-> Minimum keys needed for the core strategy flow: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENWEATHERMAP_API_KEY`. Everything else (Resend, Google OAuth, Langfuse) is optional and gracefully skipped when absent.
 
 ---
 
@@ -159,16 +139,3 @@ frontend/
 scripts/          Supabase schema migrations and seed data
 docs/             Internal specs and implementation plans
 ```
-
----
-
-## ✅ Quality baseline
-
-```bash
-cd backend && ruff check . && python -m pytest -q
-cd frontend && npx tsc --noEmit && npm test
-```
-
----
-
-*Third-party trademarks (Google, Supabase, OpenWeatherMap, Resend, Gemini) belong to their respective owners. Do not commit `.env` files or production secrets.*
