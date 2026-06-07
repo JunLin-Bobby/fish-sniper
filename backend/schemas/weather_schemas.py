@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 
 class CurrentWeatherResponseBody(BaseModel):
-    """OpenAPI body for live weather used by the Strategy page and agent Step 2."""
+    """OpenAPI body for live weather used by the Strategy page and agent Step 1."""
 
     temperature_c: float = Field(description="Air temperature in degrees Celsius (metric).")
     condition: str = Field(description="Human-readable weather description from the provider.")

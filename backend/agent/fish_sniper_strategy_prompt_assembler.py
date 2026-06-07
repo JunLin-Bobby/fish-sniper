@@ -9,7 +9,14 @@ from agent.prompts.registry import (
 from persistence.port import FishSniperFishingLogRow
 
 
+# =============================================================================
+# Internal helpers — prompt 版本解析、user prompt 共用 template 變數
+# =============================================================================
+
+
 def _resolve_strategy_prompt_version(*, prompt_version: str | None) -> str:
+    """回傳明確指定的 prompt 版本，否則使用 production 預設版本。"""
+
     return prompt_version or DEFAULT_STRATEGY_PROMPT_VERSION
 
 
@@ -25,6 +32,8 @@ def _shared_user_prompt_template_variables(
     condition_code: str,
     target_species: str,
 ) -> dict[str, object]:
+    """組裝 user prompt 模板所需的環境與釣況欄位字典。"""
+
     return {
         "region": region,
         "fishing_location": fishing_location,
@@ -38,11 +47,18 @@ def _shared_user_prompt_template_variables(
     }
 
 
-def assembler_build_general_best_practice_system_prompt_for_bass_strategy(
+# =============================================================================
+# Public builders — 依 RAG 分支組裝 system / user prompt 文字
+# =============================================================================
+
+
+def build_general_system_prompt(
     *,
     target_species: str,
     prompt_version: str | None = None,
 ) -> str:
+    """無個人日誌時：載入 general_system 模板，產生通用最佳實踐 system prompt。"""
+
     version = _resolve_strategy_prompt_version(prompt_version=prompt_version)
     return format_strategy_prompt_template(
         prompt_version=version,
@@ -51,12 +67,14 @@ def assembler_build_general_best_practice_system_prompt_for_bass_strategy(
     )
 
 
-def assembler_build_personalized_system_prompt_with_reference_log_for_bass_strategy(
+def build_personalized_system_prompt(
     *,
     target_species: str,
     reference_log: FishSniperFishingLogRow,
     prompt_version: str | None = None,
 ) -> str:
+    """有 RAG 參考日誌時：載入 personalized_system 模板，注入參考釣行紀錄欄位。"""
+
     version = _resolve_strategy_prompt_version(prompt_version=prompt_version)
     return format_strategy_prompt_template(
         prompt_version=version,
@@ -80,7 +98,7 @@ def assembler_build_personalized_system_prompt_with_reference_log_for_bass_strat
     )
 
 
-def assembler_build_shared_user_prompt_for_environmental_json_strategy(
+def build_user_prompt(
     *,
     region: str,
     fishing_location: str,
@@ -94,6 +112,8 @@ def assembler_build_shared_user_prompt_for_environmental_json_strategy(
     personalized: bool = False,
     prompt_version: str | None = None,
 ) -> str:
+    """組裝 user prompt：帶入即時環境 JSON 指令，依 personalized 切換模板分支。"""
+
     version = _resolve_strategy_prompt_version(prompt_version=prompt_version)
     template_name = (
         "user_environmental_json_personalized"

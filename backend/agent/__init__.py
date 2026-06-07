@@ -1,1 +1,1 @@
-"""LangGraph-backed bass strategy generation (P2: RAG Step 3 short-circuited)."""
+"""LangGraph-backed bass strategy generation (P2: RAG Step 2 short-circuited)."""

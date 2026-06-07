@@ -120,7 +120,7 @@ def _bearer_headers_for_user(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_json",
     new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_with_matching_log_returns_referenced_log(
@@ -182,7 +182,7 @@ def test_post_strategy_with_matching_log_returns_referenced_log(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_json",
     new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_without_done_logs_returns_zero_rag(
@@ -218,7 +218,7 @@ def test_post_strategy_without_done_logs_returns_zero_rag(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_json",
     new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_unknown_llm_model_id_returns_400(
@@ -256,7 +256,7 @@ def test_post_strategy_unknown_llm_model_id_returns_400(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_json",
     new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_openai_model_without_key_returns_503(
@@ -295,7 +295,7 @@ def test_post_strategy_openai_model_without_key_returns_503(
 
 
 @patch(
-    "agent.fish_sniper_strategy_lang_graph._generate_structured_strategy_via_text_router",
+    "agent.fish_sniper_strategy_lang_graph._generate_structured_json",
     new=AsyncMock(return_value=_MOCK_STRATEGY_GENERATION_RESULT),
 )
 def test_post_strategy_explicit_llm_model_id_succeeds(

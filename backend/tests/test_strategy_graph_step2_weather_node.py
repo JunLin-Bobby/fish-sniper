@@ -1,4 +1,4 @@
-"""Unit tests for strategy LangGraph Step 2 weather-loading node.
+"""Unit tests for strategy LangGraph Step 1 weather-loading node.
 
 Pins the *override* semantics of `manual_weather`: when present, the node MUST skip
 OpenWeatherMap entirely and use the manual values; OWM is only consulted when
@@ -15,7 +15,7 @@ from uuid import uuid4
 import pytest
 
 from agent.fish_sniper_strategy_lang_graph import (
-    node_load_user_region_and_open_weather_map_snapshot,
+    node_load_region_and_weather,
 )
 from schemas.agent_schemas import GenerateBassStrategyRequestBody, ManualWeatherPayload
 from settings import FishSniperBackendSettings
@@ -83,7 +83,7 @@ async def test_step2_uses_manual_weather_and_skips_open_weather_map_when_manual_
         _TARGET,
         new=AsyncMock(return_value=_owm_snapshot(temperature_celsius=11.0)),
     ) as owm_mock:
-        result = await node_load_user_region_and_open_weather_map_snapshot(state)
+        result = await node_load_region_and_weather(state)
 
     assert owm_mock.await_count == 0, "OWM must not be called when manual_weather is provided"
     assert result["temperature_celsius"] == 30.0
@@ -103,7 +103,7 @@ async def test_step2_uses_open_weather_map_when_manual_weather_absent() -> None:
         _TARGET,
         new=AsyncMock(return_value=_owm_snapshot(temperature_celsius=11.0)),
     ) as owm_mock:
-        result = await node_load_user_region_and_open_weather_map_snapshot(state)
+        result = await node_load_region_and_weather(state)
 
     assert owm_mock.await_count == 1
     assert result["temperature_celsius"] == 11.0
@@ -119,7 +119,7 @@ async def test_step2_returns_503_when_no_manual_and_open_weather_map_unavailable
     state = _base_state(request=request)
 
     with patch(_TARGET, new=AsyncMock(side_effect=FishSniperWeatherUnavailableError("down"))):
-        result = await node_load_user_region_and_open_weather_map_snapshot(state)
+        result = await node_load_region_and_weather(state)
 
     assert result["terminal_http_status"] == 503
     assert result["terminal_error_envelope"] == {"error": "Weather service unavailable"}

@@ -28,13 +28,13 @@ You describe where you're fishing today — location, scene, water depth, target
 
 ```mermaid
 flowchart TD
-    A([POST /agent/strategy]) --> B
+    A([POST /agent/strategy\nPydantic request validation]) --> B
 
-    B["🌤️ Step 2 — Weather snapshot\nOpenWeatherMap or manual override"]
+    B["🌤️ Step 1 — Weather snapshot\nOpenWeatherMap or manual override"]
     B -->|unavailable| ERR1([503])
     B --> C
 
-    C["🔍 Step 3 — RAG search\nGemini embed → pgvector cosine similarity"]
+    C["🔍 Step 2 — RAG search\nGemini embed → pgvector cosine similarity"]
     C -->|transient failure| D_GEN["⚠️ degrade → general branch"]
     C --> D_BRANCH{log found?}
 
@@ -45,13 +45,13 @@ flowchart TD
     D_GEN --> E
     D_GEN2 --> E
 
-    E["✍️ Step 4 — Assemble prompts\nsystem + user prompt with conditions"]
+    E["✍️ Step 3 — Assemble prompts\nsystem + user prompt with conditions"]
     E --> F
 
-    F["⚡ Step 5 — Gemini chat\nGEMINI_MODEL (default gemini-3.0-flash)\nfish_state · confidence · 3 recommendations"]
+    F["⚡ Step 4 — Gemini chat\nGEMINI_MODEL (default gemini-3.0-flash)\nfish_state · confidence · 3 recommendations"]
     F --> G
 
-    G["✅ Step 6 — Pydantic validation\n≤2 LLM attempts (initial + 1 regen), else fallback"]
+    G["✅ Step 5 — Pydantic validation\n≤2 LLM attempts (initial + 1 regen), else fallback"]
     G -->|retry| F
     G -->|exhausted| FALL(["🔄 Fallback response"])
     G -->|valid| H

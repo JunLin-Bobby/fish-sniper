@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent.fish_sniper_strategy_prompt_assembler import (
-    assembler_build_general_best_practice_system_prompt_for_bass_strategy,
-)
+from agent.fish_sniper_strategy_prompt_assembler import build_general_system_prompt
 from agent.prompts.registry import (
     DEFAULT_STRATEGY_PROMPT_VERSION,
     format_strategy_prompt_template,
@@ -37,7 +35,7 @@ def test_unknown_prompt_version_raises_value_error() -> None:
 
 
 def test_assembler_uses_v1_production_by_default() -> None:
-    text = assembler_build_general_best_practice_system_prompt_for_bass_strategy(
+    text = build_general_system_prompt(
         target_species="Largemouth Bass",
     )
     assert "no past records" in text

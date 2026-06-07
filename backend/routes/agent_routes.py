@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from agent.fish_sniper_strategy_lang_graph import invoke_fish_sniper_strategy_graph
+from agent.fish_sniper_strategy_lang_graph import invoke_strategy_graph
 from deps import (
     FishSniperEmbeddingClientDep,
     FishSniperPersistenceDep,
@@ -132,7 +132,7 @@ async def handle_generate_bass_lure_strategy_request(
         )
 
     reference_time_utc = reference_time_utc_callable()
-    final_state = await invoke_fish_sniper_strategy_graph(
+    final_state = await invoke_strategy_graph(
         fish_sniper_user_id=fish_sniper_user_id,
         parsed_request_body=request_body,
         fish_sniper_backend_settings=fish_sniper_backend_settings,

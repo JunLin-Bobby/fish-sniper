@@ -6,9 +6,9 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from agent.fish_sniper_strategy_prompt_assembler import (
-    assembler_build_general_best_practice_system_prompt_for_bass_strategy,
-    assembler_build_personalized_system_prompt_with_reference_log_for_bass_strategy,
-    assembler_build_shared_user_prompt_for_environmental_json_strategy,
+    build_general_system_prompt,
+    build_personalized_system_prompt,
+    build_user_prompt,
 )
 from persistence.port import FishSniperFishingLogRow
 
@@ -44,7 +44,7 @@ def _sample_reference_row() -> FishSniperFishingLogRow:
 
 def test_personalized_system_prompt_contains_reference_block_and_fields() -> None:
     row = _sample_reference_row()
-    text = assembler_build_personalized_system_prompt_with_reference_log_for_bass_strategy(
+    text = build_personalized_system_prompt(
         target_species="Largemouth Bass",
         reference_log=row,
     )
@@ -59,14 +59,14 @@ def test_personalized_system_prompt_contains_reference_block_and_fields() -> Non
 
 
 def test_general_system_prompt_unchanged() -> None:
-    prompt_text = assembler_build_general_best_practice_system_prompt_for_bass_strategy(
+    prompt_text = build_general_system_prompt(
         target_species="Largemouth Bass",
     )
     assert "no past records" in prompt_text
 
 
 def test_shared_user_prompt_default_matches_non_personalized_confidence_instruction() -> None:
-    base = assembler_build_shared_user_prompt_for_environmental_json_strategy(
+    base = build_user_prompt(
         region="Boston",
         fishing_location="Charles",
         fishing_scene="river",
@@ -77,7 +77,7 @@ def test_shared_user_prompt_default_matches_non_personalized_confidence_instruct
         condition_code="cloudy",
         target_species="Largemouth Bass",
     )
-    explicit = assembler_build_shared_user_prompt_for_environmental_json_strategy(
+    explicit = build_user_prompt(
         region="Boston",
         fishing_location="Charles",
         fishing_scene="river",
@@ -94,7 +94,7 @@ def test_shared_user_prompt_default_matches_non_personalized_confidence_instruct
 
 
 def test_shared_user_prompt_personalized_branch_mentions_reference_trip() -> None:
-    text = assembler_build_shared_user_prompt_for_environmental_json_strategy(
+    text = build_user_prompt(
         region="Boston",
         fishing_location="Charles",
         fishing_scene="river",

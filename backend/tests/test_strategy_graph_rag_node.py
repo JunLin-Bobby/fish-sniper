@@ -1,4 +1,4 @@
-"""Unit tests for strategy LangGraph Step 3 RAG node (P4 Part 2)."""
+"""Unit tests for strategy LangGraph Step 2 RAG node (P4 Part 2)."""
 
 from __future__ import annotations
 
