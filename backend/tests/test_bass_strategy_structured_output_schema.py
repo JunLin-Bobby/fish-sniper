@@ -9,8 +9,8 @@ import pytest
 from pydantic import ValidationError
 
 from schemas.agent_schemas import (
-    BassStrategyStructuredLlmOutputBody,
     FISH_STATE_MAX_LENGTH,
+    BassStrategyStructuredLlmOutputBody,
     GenerateBassStrategySuccessResponseBody,
     ReferencedLogPayload,
     WeatherSnapshotPayload,

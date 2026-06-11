@@ -330,7 +330,10 @@ class GenerateBassStrategySuccessResponseBody(BaseModel):
         Field(
             min_length=3,
             max_length=3,
-            description="Three combo-chain lure recommendations with tactical_role, reason, and retrieve guidance.",
+            description=(
+                "Three combo-chain lure recommendations with tactical_role, "
+                "reason, and retrieve guidance."
+            ),
         ),
     ]
     weather_snapshot: WeatherSnapshotPayload = Field(
