@@ -24,7 +24,7 @@ You describe where you're fishing today — location, scene, water depth, target
 
 ---
 
-## 🤖 AI Agent Workflow
+## 🤖 AI Workflow
 
 ```mermaid
 flowchart TD

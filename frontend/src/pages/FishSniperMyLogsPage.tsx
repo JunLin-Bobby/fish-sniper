@@ -33,6 +33,24 @@ import {
   type FishSniperMyLogFormFieldErrorKey,
 } from '../fishSniperLogs/fishSniperMyLogFormValidation.ts'
 import type { FishSniperSignedInOutletContextValue } from '../layout/fishSniperSignedInOutletContext.ts'
+import { FishSniperTacticalPageShell } from '../ui/FishSniperTacticalPageShell.tsx'
+import {
+  fishSniperTacticalChipClassName,
+  fishSniperTacticalDangerButtonClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalFabClassName,
+  fishSniperTacticalFieldLabelClassName,
+  fishSniperTacticalGhostButtonClassName,
+      fishSniperTacticalInputClassName,
+  fishSniperTacticalModalPanelClassName,
+  fishSniperTacticalMutedTextClassName,
+  fishSniperTacticalPageTitleClassName,
+  fishSniperTacticalPanelClassName,
+  fishSniperTacticalPrimaryButtonClassName,
+  fishSniperTacticalSecondaryButtonClassName,
+  fishSniperTacticalSectionTitleClassName,
+  fishSniperTacticalTextareaClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 
 const fishSniperLureTypesCatalogForMyLogForm: FishSniperLureTypesFileShape = fishSniperLureTypesCatalogJson
 const fishSniperLureColorsCatalogForMyLogForm: FishSniperLureColorsFileShape = fishSniperLureColorsCatalogJson
@@ -52,11 +70,7 @@ const FISH_SNIPER_LOG_TARGET_SPECIES_OPTIONS: readonly FishSniperStrategyTargetS
   'Smallmouth Bass',
 ]
 
-const FISH_SNIPER_MY_LOG_FIELD_ERROR_TEXT_CLASS_NAME =
-  'text-sm font-extrabold tracking-tight text-fuchsia-200 [text-shadow:0_0_22px_rgba(240,171,252,0.95),0_0_10px_rgba(244,63,94,0.65)]'
-
-const FISH_SNIPER_MY_LOG_BANNER_ERROR_CLASS_NAME =
-  'rounded-2xl border border-fuchsia-400/70 bg-fuchsia-950/45 px-4 py-3 text-sm font-semibold text-fuchsia-100 [text-shadow:0_0_18px_rgba(232,121,249,0.55)]'
+const FISH_SNIPER_MY_LOG_FIELD_ERROR_TEXT_CLASS_NAME = 'text-sm font-semibold text-rose-300'
 
 function isFishSniperStrategyTargetSpeciesValue(
   value: string,
@@ -92,15 +106,6 @@ function formatIsoTimestampForDisplay(isoTimestamp: string): string {
 export function FishSniperMyLogsPage() {
   const { fishSniperApiBaseUrl, fishSniperAccessTokenJwt } =
     useOutletContext<FishSniperSignedInOutletContextValue>()
-
-  const glassPanelClassName =
-    'rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-2xl shadow-[0_24px_70px_-34px_rgba(2,6,23,0.95)]'
-  const sectionTitleClassName = 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-300'
-  const fieldLabelClassName = 'flex flex-col gap-1.5 text-xs font-medium text-slate-300'
-  const inputClassName =
-    'rounded-xl border border-slate-600/50 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition-colors duration-200 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25'
-  const chipClassName =
-    'inline-flex items-center rounded-full border border-white/15 bg-slate-900/70 px-2.5 py-1 text-[11px] font-medium text-slate-300'
 
   const [logs, setLogs] = useState<FishingLogResponsePayload[]>([])
   const [listLoadStatus, setListLoadStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
@@ -210,7 +215,7 @@ export function FishSniperMyLogsPage() {
   function buildFishSniperMyLogInputClassName(field: FishSniperMyLogFormFieldErrorKey): string {
     const hasError = Boolean(logFormFieldErrorMap[field])
     return [
-      inputClassName,
+      fishSniperTacticalInputClassName,
       hasError ? 'border-rose-500/70 focus:border-rose-400 focus:ring-rose-500/25' : '',
     ]
       .filter(Boolean)
@@ -515,31 +520,28 @@ export function FishSniperMyLogsPage() {
   }
 
   return (
-    <div className="relative isolate mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#020617] px-4 py-5 sm:px-6">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_8%_10%,rgba(16,185,129,0.2),transparent_36%),radial-gradient(circle_at_90%_8%,rgba(56,189,248,0.18),transparent_38%),radial-gradient(circle_at_80%_90%,rgba(99,102,241,0.14),transparent_42%)]" />
-
-      <header className={`${glassPanelClassName} mb-5`}>
+    <FishSniperTacticalPageShell>
+      <header className={`${fishSniperTacticalPanelClassName} mb-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-2">
-            <p className={chipClassName}>FishSniper Logbook</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">My Fishing Logs</h1>
-            <p className="max-w-2xl text-sm text-slate-300/90">
-              Record sessions with the same glass console feel as Strategy. Weather values are stored exactly as you
-              save them.
+            <p className={fishSniperTacticalChipClassName}>FishSniper Logbook</p>
+            <h1 className={fishSniperTacticalPageTitleClassName}>My Fishing Logs</h1>
+            <p className={`max-w-2xl ${fishSniperTacticalMutedTextClassName}`}>
+              Record sessions with the same tactical console as Mission brief.
             </p>
           </div>
-          <span className={chipClassName}>
+          <span className={fishSniperTacticalChipClassName}>
             {listLoadStatus === 'loading' ? 'Syncing…' : `${logs.length} logged`}
           </span>
         </div>
       </header>
 
       {listErrorMessage ? (
-        <p className={`mb-4 ${FISH_SNIPER_MY_LOG_BANNER_ERROR_CLASS_NAME}`}>{listErrorMessage}</p>
+        <p className={`mb-4 ${fishSniperTacticalErrorBannerClassName}`}>{listErrorMessage}</p>
       ) : null}
 
       {listLoadStatus === 'loading' && logs.length === 0 ? (
-        <div className={`${glassPanelClassName} animate-pulse space-y-3 motion-reduce:animate-none`}>
+        <div className={`${fishSniperTacticalPanelClassName} animate-pulse space-y-3 motion-reduce:animate-none`}>
           <div className="h-4 w-2/3 rounded bg-slate-700/80" />
           <div className="h-4 w-full rounded bg-slate-700/80" />
           <div className="h-4 w-5/6 rounded bg-slate-700/80" />
@@ -552,7 +554,7 @@ export function FishSniperMyLogsPage() {
           return (
             <li key={log.log_id}>
               <div
-                className={`${glassPanelClassName} cursor-pointer transition-colors duration-200 hover:border-emerald-500/25`}
+                className={`${fishSniperTacticalPanelClassName} cursor-pointer transition-colors duration-200 hover:border-[#3dff8a]/30`}
                 role="button"
                 tabIndex={0}
                 onClick={() => setExpandedLogId(isExpanded ? null : log.log_id)}
@@ -567,8 +569,8 @@ export function FishSniperMyLogsPage() {
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <span className="text-sm font-semibold text-slate-50">{formatLogDateForDisplay(log.date)}</span>
                     <span className="text-sm text-slate-200">{log.fishing_location}</span>
-                    <span className={chipClassName}>{log.target_species}</span>
-                    <span className={chipClassName}>{log.lure_type}</span>
+                    <span className={fishSniperTacticalChipClassName}>{log.target_species}</span>
+                    <span className={fishSniperTacticalChipClassName}>{log.lure_type}</span>
                     <span className="text-xs text-slate-400">Caught {log.caught_count}</span>
                   </div>
                   <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
@@ -631,7 +633,7 @@ export function FishSniperMyLogsPage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="cursor-pointer rounded-xl border border-emerald-400/45 bg-emerald-500/15 px-4 py-2 text-xs font-semibold text-emerald-200 transition-colors duration-200 hover:bg-emerald-500/25"
+                        className={fishSniperTacticalSecondaryButtonClassName}
                         onClick={(event) => {
                           event.stopPropagation()
                           openEditLogForm(log)
@@ -641,7 +643,7 @@ export function FishSniperMyLogsPage() {
                       </button>
                       <button
                         type="button"
-                        className="cursor-pointer rounded-xl border border-rose-500/45 bg-rose-950/30 px-4 py-2 text-xs font-semibold text-rose-100 transition-colors duration-200 hover:bg-rose-900/40"
+                        className={fishSniperTacticalDangerButtonClassName}
                         onClick={(event) => {
                           event.stopPropagation()
                           void handleDeleteLog(log)
@@ -659,7 +661,7 @@ export function FishSniperMyLogsPage() {
       </ul>
 
       {listLoadStatus === 'ready' && logs.length === 0 ? (
-        <p className={`${glassPanelClassName} text-center text-sm text-slate-400`}>
+        <p className={`${fishSniperTacticalPanelClassName} text-center text-sm text-slate-400`}>
           No logs yet. Tap + to record your first session.
         </p>
       ) : null}
@@ -667,7 +669,7 @@ export function FishSniperMyLogsPage() {
       <button
         type="button"
         aria-label="Add fishing log"
-        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-[0_14px_40px_-12px_rgba(16,185,129,0.9)] transition-colors duration-200 hover:bg-emerald-400 sm:bottom-28"
+        className={fishSniperTacticalFabClassName}
         onClick={() => openNewLogForm()}
       >
         <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden>
@@ -681,7 +683,7 @@ export function FishSniperMyLogsPage() {
           role="presentation"
         >
           <div
-            className={`${glassPanelClassName} max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl`}
+            className={fishSniperTacticalModalPanelClassName}
             role="dialog"
             aria-modal="true"
             aria-labelledby="fish-sniper-log-form-title"
@@ -692,7 +694,7 @@ export function FishSniperMyLogsPage() {
               </h2>
               <button
                 type="button"
-                className="cursor-pointer rounded-xl border border-white/20 bg-slate-950/60 px-4 py-2 text-sm font-semibold text-slate-100 shadow-sm transition-colors duration-200 hover:border-white/35 hover:bg-slate-900/70 disabled:cursor-not-allowed disabled:opacity-50"
+                className={fishSniperTacticalGhostButtonClassName}
                 disabled={isSavingLog}
                 onClick={() => setIsFormOpen(false)}
               >
@@ -701,11 +703,11 @@ export function FishSniperMyLogsPage() {
             </div>
 
             {formSubmitError ? (
-              <p className={`mb-3 ${FISH_SNIPER_MY_LOG_BANNER_ERROR_CLASS_NAME}`}>{formSubmitError}</p>
+              <p className={`mb-3 ${fishSniperTacticalErrorBannerClassName}`}>{formSubmitError}</p>
             ) : null}
 
             <div className="space-y-4">
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Date
                 <input
                   className={buildFishSniperMyLogInputClassName('date')}
@@ -756,7 +758,7 @@ export function FishSniperMyLogsPage() {
                 )}
               </label>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Fishing location
                 <input
                   className={buildFishSniperMyLogInputClassName('fishing_location')}
@@ -775,7 +777,7 @@ export function FishSniperMyLogsPage() {
                 )}
               </label>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Water depth (m)
                 <input
                   className={buildFishSniperMyLogInputClassName('water_depth_m')}
@@ -790,10 +792,10 @@ export function FishSniperMyLogsPage() {
                 ) : null}
               </label>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Scene
                 <select
-                  className={inputClassName}
+                  className={fishSniperTacticalInputClassName}
                   value={fishingSceneTag}
                   onChange={(event) =>
                     setFishingSceneTag(
@@ -809,7 +811,7 @@ export function FishSniperMyLogsPage() {
                 </select>
               </label>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Target species
                 <select
                   className={buildFishSniperMyLogInputClassName('target_species')}
@@ -832,7 +834,7 @@ export function FishSniperMyLogsPage() {
               </label>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className={fieldLabelClassName}>
+                <label className={fishSniperTacticalFieldLabelClassName}>
                   Lure category
                   <select
                     className={buildFishSniperMyLogInputClassName('lure_type')}
@@ -847,7 +849,7 @@ export function FishSniperMyLogsPage() {
                     ))}
                   </select>
                 </label>
-                <label className={fieldLabelClassName}>
+                <label className={fishSniperTacticalFieldLabelClassName}>
                   Lure subtype
                   <select
                     className={buildFishSniperMyLogInputClassName('lure_type')}
@@ -878,7 +880,7 @@ export function FishSniperMyLogsPage() {
                 </p>
               ) : null}
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Lure color
                 <select
                   className={buildFishSniperMyLogInputClassName('lure_color')}
@@ -899,7 +901,7 @@ export function FishSniperMyLogsPage() {
                 ) : null}
               </label>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Retrieve speed
                 <input
                   className={buildFishSniperMyLogInputClassName('retrieve_speed')}
@@ -915,7 +917,7 @@ export function FishSniperMyLogsPage() {
               </label>
 
               <div className="grid grid-cols-2 gap-3">
-                <label className={fieldLabelClassName}>
+                <label className={fishSniperTacticalFieldLabelClassName}>
                   Caught count
                   <input
                     className={buildFishSniperMyLogInputClassName('caught_count')}
@@ -929,7 +931,7 @@ export function FishSniperMyLogsPage() {
                     </span>
                   ) : null}
                 </label>
-                <label className={fieldLabelClassName}>
+                <label className={fishSniperTacticalFieldLabelClassName}>
                   Weight (lb)
                   <input
                     className={buildFishSniperMyLogInputClassName('weight_lb')}
@@ -946,7 +948,7 @@ export function FishSniperMyLogsPage() {
                 </label>
               </div>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Length (cm)
                 <input
                   className={buildFishSniperMyLogInputClassName('length_cm')}
@@ -963,7 +965,7 @@ export function FishSniperMyLogsPage() {
               </label>
 
               <section className="space-y-3 rounded-2xl border border-white/10 bg-slate-950/40 p-4">
-                <h3 className={sectionTitleClassName}>Weather for this log</h3>
+                <h3 className={fishSniperTacticalSectionTitleClassName}>Weather for this log</h3>
                 <div className="flex flex-wrap gap-2.5 text-xs text-slate-200">
                   <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 transition-colors duration-200 hover:border-emerald-400/45">
                     <input
@@ -987,10 +989,10 @@ export function FishSniperMyLogsPage() {
 
                 {weatherMode === 'load_region' ? (
                   <div className="space-y-2">
-                    <label className={fieldLabelClassName}>
+                    <label className={fishSniperTacticalFieldLabelClassName}>
                       Weather query region
                       <input
-                        className={inputClassName}
+                        className={fishSniperTacticalInputClassName}
                         value={weatherRegionQueryInput}
                         onChange={(event) => setWeatherRegionQueryInput(event.target.value)}
                         placeholder="e.g. Boston"
@@ -999,7 +1001,7 @@ export function FishSniperMyLogsPage() {
                     {weatherFetchError ? <p className="text-xs text-amber-200">{weatherFetchError}</p> : null}
                     <button
                       type="button"
-                      className="cursor-pointer rounded-xl border border-emerald-400/45 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-200 transition-colors duration-200 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                      className={`${fishSniperTacticalSecondaryButtonClassName} disabled:cursor-not-allowed disabled:opacity-50`}
                       disabled={isFetchingWeatherForForm}
                       onClick={() => void handleFetchWeatherIntoForm()}
                     >
@@ -1012,7 +1014,7 @@ export function FishSniperMyLogsPage() {
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-2.5 text-sm">
-                  <label className={`${fieldLabelClassName} col-span-2`}>
+                  <label className={`${fishSniperTacticalFieldLabelClassName} col-span-2`}>
                     Temp (°C)
                     <input
                       className={buildFishSniperMyLogInputClassName('temperature_c')}
@@ -1026,10 +1028,10 @@ export function FishSniperMyLogsPage() {
                       </span>
                     ) : null}
                   </label>
-                  <label className={`${fieldLabelClassName} col-span-2`}>
+                  <label className={`${fishSniperTacticalFieldLabelClassName} col-span-2`}>
                     Condition code
                     <select
-                      className={inputClassName}
+                      className={fishSniperTacticalInputClassName}
                       value={manualConditionCode}
                       onChange={(event) =>
                         setManualConditionCode(
@@ -1044,7 +1046,7 @@ export function FishSniperMyLogsPage() {
                       ))}
                     </select>
                   </label>
-                  <label className={fieldLabelClassName}>
+                  <label className={fishSniperTacticalFieldLabelClassName}>
                     Wind (m/s)
                     <input
                       className={buildFishSniperMyLogInputClassName('wind_speed_ms')}
@@ -1058,7 +1060,7 @@ export function FishSniperMyLogsPage() {
                       </span>
                     ) : null}
                   </label>
-                  <label className={fieldLabelClassName}>
+                  <label className={fishSniperTacticalFieldLabelClassName}>
                     Pressure (hPa)
                     <input
                       className={buildFishSniperMyLogInputClassName('pressure_hpa')}
@@ -1075,10 +1077,10 @@ export function FishSniperMyLogsPage() {
                 </div>
               </section>
 
-              <label className={fieldLabelClassName}>
+              <label className={fishSniperTacticalFieldLabelClassName}>
                 Notes
                 <textarea
-                  className={`${inputClassName} min-h-[88px] resize-y`}
+                  className={fishSniperTacticalTextareaClassName}
                   value={notesInput}
                   onChange={(event) => setNotesInput(event.target.value)}
                 />
@@ -1086,7 +1088,7 @@ export function FishSniperMyLogsPage() {
 
               <button
                 type="button"
-                className="w-full cursor-pointer rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-slate-950 shadow-[0_14px_40px_-18px_rgba(16,185,129,0.95)] transition-colors duration-200 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className={fishSniperTacticalPrimaryButtonClassName}
                 disabled={isSavingLog}
                 onClick={() => void handleSaveLogForm()}
               >
@@ -1096,6 +1098,6 @@ export function FishSniperMyLogsPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </FishSniperTacticalPageShell>
   )
 }

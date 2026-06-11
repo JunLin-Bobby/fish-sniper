@@ -1,15 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 
 import type {
   FishSniperStrategyTargetSpecies,
   GenerateBassStrategyRequestPayload,
-  GenerateBassStrategySuccessResponsePayload,
 } from '../api/fishSniperApiTypes.ts'
 import type { FishSniperSignedInOutletContextValue } from '../layout/fishSniperSignedInOutletContext.ts'
 import { useFishSniperAgentLlmModelsRemoteState } from '../hooks/useFishSniperAgentLlmModelsRemoteState.ts'
 import { useFishSniperAutoWeatherSnapshotRemoteState } from '../hooks/useFishSniperAutoWeatherSnapshotRemoteState.ts'
 import { useFishSniperSubmitBassStrategyMutation } from '../hooks/useFishSniperSubmitBassStrategyMutation.ts'
+import { StrategySonarHudPanel } from '../strategy/console/StrategySonarHudPanel.tsx'
+import { saveStrategyReportToSessionStorage } from '../strategy/strategyReportSessionStorage.ts'
+import { FishSniperTacticalPageShell } from '../ui/FishSniperTacticalPageShell.tsx'
+import {
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalEyebrowClassName,
+  fishSniperTacticalInputClassName,
+  fishSniperTacticalMutedTextClassName,
+  fishSniperTacticalOptionTileActiveClassName,
+  fishSniperTacticalOptionTileBaseClassName,
+  fishSniperTacticalOptionTileIdleClassName,
+  fishSniperTacticalPageTitleClassName,
+  fishSniperTacticalPrimaryButtonClassName,
+  fishSniperTacticalSelectClassName,
+  fishSniperTacticalWarningBannerClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 
 const FISH_SNIPER_FISHING_SCENE_TAG_OPTIONS = ['river', 'lake', 'reservoir', 'pond'] as const
 
@@ -23,25 +38,38 @@ const FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS = [
 
 const FISH_SNIPER_TARGET_SPECIES_OPTIONS = ['Largemouth Bass', 'Smallmouth Bass'] as const
 
+const TARGET_SPECIES_SHORT_LABEL: Record<FishSniperStrategyTargetSpecies, string> = {
+  'Largemouth Bass': 'Largemouth',
+  'Smallmouth Bass': 'Smallmouth',
+}
+
+function capitalizeSceneTag(scene: string): string {
+  return scene.charAt(0).toUpperCase() + scene.slice(1)
+}
+
 function isFishSniperManualConditionCodeValue(
   value: string,
 ): value is (typeof FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS)[number] {
   return (FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS as readonly string[]).includes(value)
 }
 
-function formatIsoTimestampForDisplay(isoTimestamp: string): string {
-  const parsed = Date.parse(isoTimestamp)
-  if (Number.isNaN(parsed)) {
-    return isoTimestamp
-  }
-  return new Date(parsed).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+function MissionQuestion(options: { question: string; children: ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-medium tracking-tight text-slate-100 sm:text-xl">
+        {options.question}
+      </h2>
+      {options.children}
+    </div>
+  )
 }
 
 export function FishSniperStrategyPage() {
-  const { fishSniperApiBaseUrl, fishSniperAccessTokenJwt } =
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const reportMissingNotice = searchParams.get('report') === 'missing'
+
+  const { fishSniperApiBaseUrl, fishSniperAccessTokenJwt, userPreferences } =
     useOutletContext<FishSniperSignedInOutletContextValue>()
 
   const [weatherMode, setWeatherMode] = useState<'auto' | 'manual'>('auto')
@@ -84,8 +112,6 @@ export function FishSniperStrategyPage() {
       fishSniperAccessTokenJwt,
     })
 
-  const [strategySuccessPayload, setStrategySuccessPayload] =
-    useState<GenerateBassStrategySuccessResponsePayload | null>(null)
   const [strategyFallbackMessage, setStrategyFallbackMessage] = useState<string | null>(null)
   const [strategyHardErrorMessage, setStrategyHardErrorMessage] = useState<string | null>(null)
 
@@ -114,6 +140,13 @@ export function FishSniperStrategyPage() {
     isLlmModelSelectionReady
 
   useEffect(() => {
+    if (!userPreferences?.region) {
+      return
+    }
+    setWeatherRegionInput((current) => (current.trim().length > 0 ? current : userPreferences.region ?? ''))
+  }, [userPreferences?.region])
+
+  useEffect(() => {
     if (agentLlmModelsRemoteStatus !== 'success' || !agentLlmModelsPayload) {
       return
     }
@@ -133,18 +166,6 @@ export function FishSniperStrategyPage() {
     })
   }, [agentLlmModelsRemoteStatus, agentLlmModelsPayload])
 
-  const glassPanelClassName =
-    'rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-2xl shadow-[0_24px_70px_-34px_rgba(2,6,23,0.95)]'
-  const sectionTitleClassName = 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-300'
-  const fieldLabelClassName = 'flex flex-col gap-1.5 text-xs font-medium text-slate-300'
-  const inputClassName =
-    'rounded-xl border border-slate-600/50 bg-slate-950/70 px-3 py-2.5 text-sm text-slate-100 outline-none transition-colors duration-200 placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25'
-  const chipClassName =
-    'inline-flex items-center rounded-full border border-white/15 bg-slate-900/70 px-2.5 py-1 text-[11px] font-medium text-slate-300'
-  const headerMetaLabelClassName = 'text-sm font-semibold text-slate-100 sm:text-base'
-  const headerSelectClassName =
-    'min-w-[10.5rem] cursor-pointer rounded-xl border border-white/20 bg-slate-950/80 px-3 py-2 text-sm font-medium text-slate-100 outline-none transition-colors duration-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/25 sm:min-w-[12rem] sm:text-base'
-
   function applyAutoSnapshotToManualWeatherFields(): void {
     if (!autoWeatherSnapshotPayload) {
       return
@@ -159,7 +180,6 @@ export function FishSniperStrategyPage() {
   }
 
   async function handleSubmitBassStrategyRequest(): Promise<void> {
-    setStrategySuccessPayload(null)
     setStrategyFallbackMessage(null)
     setStrategyHardErrorMessage(null)
 
@@ -187,7 +207,17 @@ export function FishSniperStrategyPage() {
     const submitResult = await submitBassStrategyRequest(requestPayload)
 
     if (submitResult.outcome === 'success') {
-      setStrategySuccessPayload(submitResult.successPayload)
+      saveStrategyReportToSessionStorage({
+        successPayload: submitResult.successPayload,
+        requestSummary: {
+          region: requestPayload.region,
+          fishing_location: requestPayload.fishing_location,
+          fishing_scene: requestPayload.fishing_scene,
+          target_species: requestPayload.target_species,
+          water_depth_m: requestPayload.water_depth_m,
+        },
+      })
+      navigate('/strategy/report')
       return
     }
     if (submitResult.outcome === 'fallback') {
@@ -202,352 +232,246 @@ export function FishSniperStrategyPage() {
   }
 
   return (
-    <div className="relative isolate mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#020617] px-4 py-5 sm:px-6">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_8%_10%,rgba(16,185,129,0.2),transparent_36%),radial-gradient(circle_at_90%_8%,rgba(56,189,248,0.18),transparent_38%),radial-gradient(circle_at_80%_90%,rgba(99,102,241,0.14),transparent_42%)]" />
-      <header className={`${glassPanelClassName} mb-5`}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-2">
-            <p className={chipClassName}>FishSniper Control Room</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">Bass Strategy Console</h1>
-            <p className="max-w-2xl text-sm text-slate-300/90">
-              Keep your existing inputs, run a fresh weather-aware strategy, and get a clean tactical output.
+    <FishSniperTacticalPageShell>
+        <header className="mb-8 border-b border-[#3dff8a]/15 pb-8 lg:mb-10">
+          <p className={fishSniperTacticalEyebrowClassName}>FishSniper · Tactical command</p>
+          <h1 className={`mt-2 ${fishSniperTacticalPageTitleClassName}`}>Mission brief</h1>
+          <p className={`mt-3 max-w-2xl ${fishSniperTacticalMutedTextClassName}`}>
+            Set your water, target, and conditions — then deploy a full tactical readout.
+          </p>
+        </header>
+
+        {reportMissingNotice ? (
+          <p className={`mb-6 ${fishSniperTacticalMutedTextClassName} rounded-xl border border-slate-500/40 bg-black/40 px-4 py-3`}>
+            No strategy report in this session. Deploy one below.
+          </p>
+        ) : null}
+
+        {strategyHardErrorMessage ? (
+          <p className={`mb-6 ${fishSniperTacticalErrorBannerClassName}`}>{strategyHardErrorMessage}</p>
+        ) : null}
+
+        {strategyFallbackMessage ? (
+          <div className={`mb-6 ${fishSniperTacticalWarningBannerClassName}`}>
+            <p className="font-semibold">Could not generate a strategy. Try adjusting your mission.</p>
+            <p className="mt-1 text-xs text-amber-200/90">{strategyFallbackMessage}</p>
+          </div>
+        ) : null}
+
+        {isSubmittingBassStrategy ? (
+          <div className="mb-8 animate-pulse rounded-2xl border border-[#3dff8a]/20 bg-black/40 p-8 motion-reduce:animate-none">
+            <p className="text-sm font-semibold uppercase tracking-widest text-[#5dff9a]">
+              Deploying strategy…
             </p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-4 sm:gap-6">
-            <span className={headerMetaLabelClassName}>
-              {weatherMode === 'auto' ? 'Weather: Auto' : 'Weather: Manual'}
-            </span>
-            <label className={`flex items-center gap-2.5 ${headerMetaLabelClassName}`}>
-              <span className="shrink-0">Model:</span>
-              <select
-                className={headerSelectClassName}
-                value={selectedLlmModelId ?? ''}
-                disabled={
-                  agentLlmModelsRemoteStatus === 'loading' ||
-                  agentLlmModelsRemoteStatus === 'error' ||
-                  (agentLlmModelsPayload?.models.length ?? 0) === 0
-                }
-                onChange={(event) => setSelectedLlmModelId(event.target.value)}
-                aria-label="Strategy LLM model"
-              >
-                {agentLlmModelsRemoteStatus === 'loading' ? (
-                  <option value="">Loading models…</option>
-                ) : null}
-                {agentLlmModelsRemoteStatus === 'error' ? (
-                  <option value="">Models unavailable</option>
-                ) : null}
-                {agentLlmModelsRemoteStatus === 'success' &&
-                agentLlmModelsPayload &&
-                agentLlmModelsPayload.models.length === 0 ? (
-                  <option value="">No models configured</option>
-                ) : null}
-                {agentLlmModelsPayload?.models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.display_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      </header>
+        ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
-        <div className="space-y-5">
-          <section className={`${glassPanelClassName} space-y-4`}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className={sectionTitleClassName}>Weather Source</h2>
-              {weatherMode === 'auto' ? (
+        <div
+          className={
+            isSubmittingBassStrategy
+              ? 'pointer-events-none grid grid-cols-1 gap-8 opacity-50 lg:grid-cols-12 lg:gap-10'
+              : 'grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10'
+          }
+        >
+          <div className="flex flex-col gap-8 lg:col-span-5 xl:col-span-5">
+            <MissionQuestion question="Where are you fishing?">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {FISH_SNIPER_FISHING_SCENE_TAG_OPTIONS.map((scene) => {
+                  const isSelected = fishingSceneTag === scene
+                  return (
+                    <button
+                      key={scene}
+                      type="button"
+                      className={`${fishSniperTacticalOptionTileBaseClassName} ${
+                        isSelected ? fishSniperTacticalOptionTileActiveClassName : fishSniperTacticalOptionTileIdleClassName
+                      }`}
+                      onClick={() => setFishingSceneTag(scene)}
+                    >
+                      {capitalizeSceneTag(scene)}
+                    </button>
+                  )
+                })}
+              </div>
+              <input
+                className={fishSniperTacticalInputClassName}
+                placeholder="Spot name — e.g. North shore dock"
+                value={fishingLocationInput}
+                aria-label="Fishing spot"
+                onChange={(event) => setFishingLocationInput(event.target.value)}
+              />
+            </MissionQuestion>
+
+            <MissionQuestion question="Target?">
+              <div className="grid grid-cols-2 gap-3">
+                {FISH_SNIPER_TARGET_SPECIES_OPTIONS.map((species) => {
+                  const isSelected = targetSpeciesSelection === species
+                  return (
+                    <button
+                      key={species}
+                      type="button"
+                      className={`${fishSniperTacticalOptionTileBaseClassName} py-4 text-base ${
+                        isSelected ? fishSniperTacticalOptionTileActiveClassName : fishSniperTacticalOptionTileIdleClassName
+                      }`}
+                      onClick={() => setTargetSpeciesSelection(species)}
+                    >
+                      {TARGET_SPECIES_SHORT_LABEL[species]}
+                    </button>
+                  )
+                })}
+              </div>
+            </MissionQuestion>
+
+            <MissionQuestion question="Conditions?">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="cursor-pointer rounded-lg border border-emerald-400/45 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-200 transition-colors duration-200 hover:bg-emerald-500/25"
-                  onClick={() => void reloadAutoWeatherSnapshot()}
+                  className={`${fishSniperTacticalOptionTileBaseClassName} py-4 ${
+                    weatherMode === 'auto' ? fishSniperTacticalOptionTileActiveClassName : fishSniperTacticalOptionTileIdleClassName
+                  }`}
+                  onClick={() => setWeatherMode('auto')}
                 >
-                  Refresh
+                  Auto detect
                 </button>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap gap-2.5 text-xs text-slate-200">
-              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 transition-colors duration-200 hover:border-emerald-400/45">
-                <input
-                  type="radio"
-                  name="fish-sniper-weather-mode"
-                  checked={weatherMode === 'auto'}
-                  onChange={() => setWeatherMode('auto')}
-                />
-                Auto (profile region)
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-slate-900/70 px-3 py-2 transition-colors duration-200 hover:border-emerald-400/45">
-                <input
-                  type="radio"
-                  name="fish-sniper-weather-mode"
-                  checked={weatherMode === 'manual'}
-                  onChange={() => {
+                <button
+                  type="button"
+                  className={`${fishSniperTacticalOptionTileBaseClassName} py-4 ${
+                    weatherMode === 'manual' ? fishSniperTacticalOptionTileActiveClassName : fishSniperTacticalOptionTileIdleClassName
+                  }`}
+                  onClick={() => {
                     setWeatherMode('manual')
                     applyAutoSnapshotToManualWeatherFields()
                   }}
-                />
-                Manual (overrides Auto)
-              </label>
-            </div>
-
-            {weatherMode === 'auto' ? (
-              <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-4 text-sm">
-                {autoWeatherRemoteStatus === 'loading' ? (
-                  <p className="animate-pulse text-slate-400">Loading weather…</p>
-                ) : null}
-                {autoWeatherRemoteStatus === 'success' && autoWeatherSnapshotPayload ? (
-                  <ul className="space-y-1.5 text-slate-200">
-                    <li>
-                      {autoWeatherSnapshotPayload.temperature_c.toFixed(1)}°C —{' '}
-                      {autoWeatherSnapshotPayload.condition}
-                    </li>
-                    <li>
-                      Wind {autoWeatherSnapshotPayload.wind_speed_ms.toFixed(1)} m/s · Pressure{' '}
-                      {autoWeatherSnapshotPayload.pressure_hpa} hPa · Humidity{' '}
-                      {autoWeatherSnapshotPayload.humidity_pct}%
-                    </li>
-                    <li className="text-xs text-slate-400">
-                      Updated {formatIsoTimestampForDisplay(autoWeatherSnapshotPayload.fetched_at)}
-                    </li>
-                  </ul>
-                ) : null}
-                {autoWeatherRemoteStatus === 'error' ? (
-                  <div className="space-y-2 text-amber-100">
-                    <p>Weather could not be loaded.</p>
-                    {autoWeatherLastHttpStatusCode === 503 ? (
-                      <p className="text-xs text-slate-400">
-                        Switch to Manual and enter conditions, or fix the region in profile.
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
+                >
+                  Manual
+                </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2.5 text-sm">
-                <label className={`${fieldLabelClassName} col-span-2`}>
-                  Temp (°C)
+            </MissionQuestion>
+
+            <details className="group rounded-xl border border-white/10 bg-black/30 open:border-amber-500/25">
+              <summary className="cursor-pointer list-none px-5 py-4 text-sm font-medium text-slate-300 transition-colors duration-200 hover:text-amber-200 [&::-webkit-details-marker]:hidden">
+                <span className="uppercase tracking-[0.14em] text-amber-400/90">Mission parameters</span>
+                <span className="mt-1 block text-xs text-slate-500 group-open:hidden">
+                  Region, depth, model, manual weather
+                </span>
+              </summary>
+              <div className="flex flex-col gap-4 border-t border-white/10 px-5 pb-5 pt-4">
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                  Weather region
                   <input
-                    className={inputClassName}
-                    inputMode="decimal"
-                    value={manualTemperatureCelsius}
-                    onChange={(event) => setManualTemperatureCelsius(event.target.value)}
+                    className={fishSniperTacticalInputClassName}
+                    placeholder="e.g. Austin, TX"
+                    value={weatherRegionInput}
+                    onChange={(event) => setWeatherRegionInput(event.target.value)}
                   />
                 </label>
-                <label className={`${fieldLabelClassName} col-span-2`}>
-                  Condition code
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                  Water depth (m)
+                  <input
+                    className={fishSniperTacticalInputClassName}
+                    inputMode="decimal"
+                    value={waterDepthMetersInput}
+                    onChange={(event) => setWaterDepthMetersInput(event.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                  Analysis model
                   <select
-                    className={inputClassName}
-                    value={manualConditionCode}
-                    onChange={(event) =>
-                      setManualConditionCode(
-                        event.target.value as (typeof FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS)[number],
-                      )
+                    className={fishSniperTacticalSelectClassName}
+                    value={selectedLlmModelId ?? ''}
+                    disabled={
+                      agentLlmModelsRemoteStatus === 'loading' ||
+                      agentLlmModelsRemoteStatus === 'error' ||
+                      (agentLlmModelsPayload?.models.length ?? 0) === 0
                     }
+                    onChange={(event) => setSelectedLlmModelId(event.target.value)}
                   >
-                    {FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
+                    {agentLlmModelsPayload?.models.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.display_name}
                       </option>
                     ))}
                   </select>
                 </label>
-                <label className={fieldLabelClassName}>
-                  Wind (m/s)
-                  <input
-                    className={inputClassName}
-                    inputMode="decimal"
-                    value={manualWindSpeedMetersPerSecond}
-                    onChange={(event) => setManualWindSpeedMetersPerSecond(event.target.value)}
-                  />
-                </label>
-                <label className={fieldLabelClassName}>
-                  Pressure (hPa)
-                  <input
-                    className={inputClassName}
-                    inputMode="numeric"
-                    value={manualPressureHectopascals}
-                    onChange={(event) => setManualPressureHectopascals(event.target.value)}
-                  />
-                </label>
-              </div>
-            )}
-          </section>
-
-          <section className={`${glassPanelClassName} space-y-3.5`}>
-            <h2 className={sectionTitleClassName}>Location Input</h2>
-            <label className={fieldLabelClassName}>
-              Weather region (for OpenWeatherMap)
-              <input
-                className={inputClassName}
-                placeholder="e.g. Austin, TX"
-                value={weatherRegionInput}
-                onChange={(event) => setWeatherRegionInput(event.target.value)}
-              />
-            </label>
-            <label className={fieldLabelClassName}>
-              Fishing location
-              <input
-                className={inputClassName}
-                placeholder="e.g. North shore dock"
-                value={fishingLocationInput}
-                onChange={(event) => setFishingLocationInput(event.target.value)}
-              />
-            </label>
-            <label className={fieldLabelClassName}>
-              Water depth (m)
-              <input
-                className={inputClassName}
-                inputMode="decimal"
-                value={waterDepthMetersInput}
-                onChange={(event) => setWaterDepthMetersInput(event.target.value)}
-              />
-            </label>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              <label className={fieldLabelClassName}>
-                Scene
-                <select
-                  className={inputClassName}
-                  value={fishingSceneTag}
-                  onChange={(event) =>
-                    setFishingSceneTag(
-                      event.target.value as (typeof FISH_SNIPER_FISHING_SCENE_TAG_OPTIONS)[number],
-                    )
-                  }
-                >
-                  {FISH_SNIPER_FISHING_SCENE_TAG_OPTIONS.map((scene) => (
-                    <option key={scene} value={scene}>
-                      {scene}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={fieldLabelClassName}>
-                Target species
-                <select
-                  className={inputClassName}
-                  value={targetSpeciesSelection}
-                  onChange={(event) =>
-                    setTargetSpeciesSelection(event.target.value as FishSniperStrategyTargetSpecies)
-                  }
-                >
-                  {FISH_SNIPER_TARGET_SPECIES_OPTIONS.map((species) => (
-                    <option key={species} value={species}>
-                      {species}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <button
-            type="button"
-            className="w-full cursor-pointer rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-slate-950 shadow-[0_14px_40px_-18px_rgba(16,185,129,0.95)] transition-colors duration-200 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!isFormReadyToSubmit || isSubmittingBassStrategy}
-            onClick={() => void handleSubmitBassStrategyRequest()}
-          >
-            {isSubmittingBassStrategy ? 'Sniping…' : 'Snipe it'}
-          </button>
-        </div>
-
-        <aside className="space-y-4">
-          {strategyHardErrorMessage ? (
-            <p className="rounded-2xl border border-rose-500/45 bg-rose-950/30 px-4 py-3 text-sm text-rose-100 backdrop-blur-md">
-              {strategyHardErrorMessage}
-            </p>
-          ) : null}
-
-          {strategyFallbackMessage ? (
-            <div className="rounded-2xl border border-amber-500/45 bg-amber-950/30 p-4 text-sm text-amber-100 backdrop-blur-md">
-              <p className="font-semibold">Could not generate a strategy. Try adjusting your input.</p>
-              <p className="mt-1 text-xs text-amber-200/90">{strategyFallbackMessage}</p>
-            </div>
-          ) : null}
-
-          {isSubmittingBassStrategy ? (
-            <div className="min-h-[260px] animate-pulse space-y-3 rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-2xl">
-              <div className="h-4 w-2/3 rounded bg-slate-700/80" />
-              <div className="h-4 w-full rounded bg-slate-700/80" />
-              <div className="h-4 w-5/6 rounded bg-slate-700/80" />
-              <div className="h-4 w-4/6 rounded bg-slate-700/80" />
-            </div>
-          ) : null}
-
-          {strategySuccessPayload && !isSubmittingBassStrategy ? (
-            <div className="min-h-[260px] space-y-4 rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-2xl shadow-[0_24px_70px_-34px_rgba(2,6,23,0.95)]">
-              <h2 className="text-sm font-semibold text-emerald-300">Your plan</h2>
-              <p className="text-xs text-slate-400">
-                Seven tiles: fish mood, three lure picks, three retrieve notes (primary → tertiary).
-              </p>
-              {strategySuccessPayload.referenced_log ? (
-                <div
-                  className={`${glassPanelClassName} !p-4 border-sky-500/25 bg-sky-950/25 sm:col-span-3`}
-                >
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200/90">
-                    Reference log
-                  </h3>
-                  <p className="text-sm leading-relaxed text-slate-100">
-                    This run used your{' '}
-                    <span className="font-medium text-slate-50">
-                      {strategySuccessPayload.referenced_log.log_date}
-                    </span>{' '}
-                    trip at{' '}
-                    <span className="font-medium text-slate-50">
-                      {strategySuccessPayload.referenced_log.fishing_location}
-                    </span>
-                    : {strategySuccessPayload.referenced_log.lure_type} /{' '}
-                    {strategySuccessPayload.referenced_log.lure_color},{' '}
-                    {strategySuccessPayload.referenced_log.retrieve_speed},{' '}
-                    {strategySuccessPayload.referenced_log.caught_count} fish caught.
+                {weatherMode === 'manual' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="col-span-2 flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                      Temp (°C)
+                      <input
+                        className={fishSniperTacticalInputClassName}
+                        inputMode="decimal"
+                        value={manualTemperatureCelsius}
+                        onChange={(event) => setManualTemperatureCelsius(event.target.value)}
+                      />
+                    </label>
+                    <label className="col-span-2 flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                      Sky
+                      <select
+                        className={fishSniperTacticalSelectClassName}
+                        value={manualConditionCode}
+                        onChange={(event) =>
+                          setManualConditionCode(
+                            event.target.value as (typeof FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS)[number],
+                          )
+                        }
+                      >
+                        {FISH_SNIPER_MANUAL_CONDITION_CODE_OPTIONS.map((code) => (
+                          <option key={code} value={code}>
+                            {code}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                      Wind (m/s)
+                      <input
+                        className={fishSniperTacticalInputClassName}
+                        inputMode="decimal"
+                        value={manualWindSpeedMetersPerSecond}
+                        onChange={(event) => setManualWindSpeedMetersPerSecond(event.target.value)}
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1.5 text-xs font-medium text-slate-400">
+                      Pressure (hPa)
+                      <input
+                        className={fishSniperTacticalInputClassName}
+                        inputMode="numeric"
+                        value={manualPressureHectopascals}
+                        onChange={(event) => setManualPressureHectopascals(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                {weatherMode === 'auto' && autoWeatherRemoteStatus === 'error' && autoWeatherLastHttpStatusCode === 503 ? (
+                  <p className="text-xs leading-relaxed text-amber-200/90">
+                    Auto weather unavailable — set region here or switch to manual conditions.
                   </p>
-                </div>
-              ) : null}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div
-                  className={`${glassPanelClassName} !p-4 sm:col-span-3 border-emerald-500/20 bg-emerald-950/20`}
-                >
-                  <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200/90">
-                    Fish state today
-                  </h3>
-                  <p className="text-sm leading-relaxed text-slate-100">{strategySuccessPayload.fish_state}</p>
-                </div>
-                {strategySuccessPayload.recommendations.map((rec, index) => (
-                  <div key={`lure-${index}`} className={`${glassPanelClassName} !p-4`}>
-                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Lure {index + 1}
-                    </h3>
-                    <p className="text-sm font-medium text-slate-50">{rec.lure_type}</p>
-                    <p className="mt-1 text-xs text-slate-400">{rec.lure_color}</p>
-                  </div>
-                ))}
-                {strategySuccessPayload.recommendations.map((rec, index) => (
-                  <div key={`tech-${index}`} className={`${glassPanelClassName} !p-4`}>
-                    <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                      Technique {index + 1}
-                    </h3>
-                    <p className="text-sm leading-relaxed text-slate-200">{rec.retrieve_technique}</p>
-                  </div>
-                ))}
+                ) : null}
               </div>
-              <p className="text-sm text-slate-300">{strategySuccessPayload.confidence_note}</p>
-              <p className="text-xs text-slate-500">
-                Generated {formatIsoTimestampForDisplay(strategySuccessPayload.generated_at)} · RAG logs{' '}
-                {strategySuccessPayload.rag_logs_used}
-              </p>
-            </div>
-          ) : (
-            !isSubmittingBassStrategy &&
-            !strategyFallbackMessage &&
-            !strategyHardErrorMessage && (
-              <div className="min-h-[260px] rounded-3xl border border-dashed border-white/20 bg-slate-900/40 p-5 text-sm text-slate-400 backdrop-blur-xl">
-                Enter your spot and tap Snipe it for today&apos;s strategy.
-              </div>
-            )
-          )}
-        </aside>
-      </div>
-    </div>
+            </details>
+
+            <button
+              type="button"
+              className={fishSniperTacticalPrimaryButtonClassName}
+              disabled={!isFormReadyToSubmit || isSubmittingBassStrategy}
+              onClick={() => void handleSubmitBassStrategyRequest()}
+            >
+              {isSubmittingBassStrategy ? 'Deploying…' : 'Generate strategy'}
+            </button>
+          </div>
+
+          <div className="lg:col-span-7 xl:col-span-7">
+            <StrategySonarHudPanel
+              fishingSceneLabel={capitalizeSceneTag(fishingSceneTag)}
+              waterDepthMeters={waterDepthMetersInput}
+              weatherMode={weatherMode}
+              autoWeatherRemoteStatus={autoWeatherRemoteStatus}
+              autoWeatherSnapshotPayload={autoWeatherSnapshotPayload}
+              manualTemperatureCelsius={manualTemperatureCelsius}
+              manualConditionCode={manualConditionCode}
+              onRefreshWeather={() => void reloadAutoWeatherSnapshot()}
+            />
+          </div>
+        </div>
+    </FishSniperTacticalPageShell>
   )
 }

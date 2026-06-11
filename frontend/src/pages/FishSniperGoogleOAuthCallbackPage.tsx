@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { getOrStartGoogleOAuthAuthorizationCodeExchange } from '../auth/fishSniperGoogleOAuthExchangeDedupe.ts'
+import { FishSniperTacticalAuthShell } from '../ui/FishSniperTacticalAuthShell.tsx'
+import {
+  fishSniperTacticalAuthCardClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalGhostButtonClassName,
+  fishSniperTacticalMutedTextClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 
 /** Renders the `/auth/google/callback` page that exchanges the auth code with backend. */
 export function FishSniperGoogleOAuthCallbackPage(options: {
@@ -58,24 +65,25 @@ export function FishSniperGoogleOAuthCallbackPage(options: {
   }, [options.apiBaseUrl])
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-5 text-center">
-        <h1 className="text-3xl font-bold text-emerald-400 tracking-tight">FishSniper</h1>
+    <FishSniperTacticalAuthShell title="FishSniper" subtitle="Completing sign-in">
+      <div className={`${fishSniperTacticalAuthCardClassName} text-center`}>
         {callbackFailureMessage ? (
           <>
-            <p className="text-sm text-red-400">{callbackFailureMessage}</p>
+            <p className={fishSniperTacticalErrorBannerClassName}>{callbackFailureMessage}</p>
             <button
               type="button"
-              className="rounded-md bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-semibold px-4 py-2 text-sm"
+              className={fishSniperTacticalGhostButtonClassName}
               onClick={() => options.onReturnToSignIn()}
             >
               Back to sign-in
             </button>
           </>
         ) : (
-          <p className="text-sm text-gray-400 animate-pulse">{callbackStatusMessage}</p>
+          <p className={`${fishSniperTacticalMutedTextClassName} motion-safe:animate-pulse motion-reduce:animate-none`}>
+            {callbackStatusMessage}
+          </p>
         )}
       </div>
-    </div>
+    </FishSniperTacticalAuthShell>
   )
 }

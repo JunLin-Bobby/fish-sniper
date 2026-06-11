@@ -1,6 +1,14 @@
 import { useState } from 'react'
 
 import { useFishSniperSaveRegionOnboardingMutation } from '../hooks/useFishSniperSaveRegionOnboardingMutation.ts'
+import { FishSniperTacticalAuthShell } from '../ui/FishSniperTacticalAuthShell.tsx'
+import {
+  fishSniperTacticalAuthCardClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalFieldLabelClassName,
+  fishSniperTacticalInputClassName,
+  fishSniperTacticalPrimaryButtonClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 
 export function FishSniperOnboardingRegionPage(options: {
   apiBaseUrl: string
@@ -28,36 +36,37 @@ export function FishSniperOnboardingRegionPage(options: {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-4">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-semibold">Set up your fishing profile</h1>
-          <p className="text-sm text-gray-500">
-            We use your home region for weather on the strategy screen (coming next).
-          </p>
-        </div>
-
-        <input
-          className="w-full rounded-md bg-gray-900 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
-          placeholder="City name, e.g. Boston"
-          value={profileRegionInput}
-          autoFocus
-          onChange={(event) => setProfileRegionInput(event.target.value)}
-        />
+    <FishSniperTacticalAuthShell
+      title="FishSniper"
+      subtitle="Set your home region for auto weather on Mission brief."
+    >
+      <div className={fishSniperTacticalAuthCardClassName}>
+        <label className={fishSniperTacticalFieldLabelClassName}>
+          Home region
+          <input
+            className={fishSniperTacticalInputClassName}
+            placeholder="City name, e.g. Boston"
+            value={profileRegionInput}
+            autoFocus
+            onChange={(event) => setProfileRegionInput(event.target.value)}
+          />
+        </label>
 
         {saveRegionMutation.saveRegionHardFailureMessage ? (
-          <p className="text-sm text-red-400">{saveRegionMutation.saveRegionHardFailureMessage}</p>
+          <p className={fishSniperTacticalErrorBannerClassName}>
+            {saveRegionMutation.saveRegionHardFailureMessage}
+          </p>
         ) : null}
 
         <button
           type="button"
-          className="w-full rounded-md bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-semibold py-2 text-sm disabled:opacity-50"
+          className={fishSniperTacticalPrimaryButtonClassName}
           disabled={saveRegionMutation.isSavingRegion || profileRegionInput.trim().length === 0}
           onClick={() => void handleStartSniping()}
         >
           {saveRegionMutation.isSavingRegion ? 'Saving…' : 'Start sniping'}
         </button>
       </div>
-    </div>
+    </FishSniperTacticalAuthShell>
   )
 }

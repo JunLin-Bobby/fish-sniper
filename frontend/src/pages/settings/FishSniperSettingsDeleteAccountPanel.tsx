@@ -4,6 +4,12 @@ import { useNavigate, useOutletContext } from 'react-router-dom'
 import { FishSniperDeleteAccountConfirmModal } from '../../components/settings/FishSniperDeleteAccountConfirmModal.tsx'
 import { useFishSniperDeleteAccountMutation } from '../../hooks/useFishSniperDeleteAccountMutation.ts'
 import type { FishSniperSignedInOutletContextValue } from '../../layout/fishSniperSignedInOutletContext.ts'
+import {
+  fishSniperTacticalCardHeadingClassName,
+  fishSniperTacticalCardClassName,
+  fishSniperTacticalDangerButtonClassName,
+  fishSniperTacticalMutedTextClassName,
+} from '../../ui/fishSniperTacticalUi.ts'
 
 export function FishSniperSettingsDeleteAccountPanel() {
   const navigate = useNavigate()
@@ -28,10 +34,10 @@ export function FishSniperSettingsDeleteAccountPanel() {
   }
 
   return (
-    <section className="space-y-5">
+    <section className={`${fishSniperTacticalCardClassName} space-y-5`}>
       <div>
-        <h2 className="text-lg font-semibold text-gray-100">Delete Account</h2>
-        <p className="mt-2 text-sm leading-relaxed text-gray-400">
+        <h2 className={fishSniperTacticalCardHeadingClassName}>Delete Account</h2>
+        <p className={`mt-2 ${fishSniperTacticalMutedTextClassName}`}>
           Permanently delete your FishSniper account and all associated fishing logs. This cannot
           be undone.
         </p>
@@ -39,10 +45,10 @@ export function FishSniperSettingsDeleteAccountPanel() {
 
       <button
         type="button"
-        className="rounded-md border border-red-500/50 bg-red-600 px-4 py-2 text-sm font-bold tracking-wide text-white shadow-sm shadow-red-900/30 hover:bg-red-500 transition-colors cursor-pointer"
+        className={fishSniperTacticalDangerButtonClassName}
         onClick={() => setIsDeleteModalOpen(true)}
       >
-        DELETE
+        Delete account
       </button>
 
       <FishSniperDeleteAccountConfirmModal

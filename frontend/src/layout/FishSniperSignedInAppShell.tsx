@@ -1,6 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 import type { UserPreferencesResponsePayload } from '../api/fishSniperApiTypes.ts'
+import { clearStrategyReportSessionStorage } from '../strategy/strategyReportSessionStorage.ts'
+import {
+  fishSniperTacticalNavLinkBaseClassName,
+  fishSniperTacticalPrimaryNavLinkClassName,
+  fishSniperTacticalSettingsNavLinkClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 import type { FishSniperSignedInOutletContextValue } from './fishSniperSignedInOutletContext.ts'
 
 function FishSniperSettingsGearIcon() {
@@ -22,25 +28,6 @@ function FishSniperSettingsGearIcon() {
   )
 }
 
-const NAV_LINK_BASE =
-  'rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-200 cursor-pointer'
-
-function primaryNavLinkClassName(isActive: boolean): string {
-  return `${NAV_LINK_BASE} ${
-    isActive
-      ? 'bg-emerald-500/15 text-emerald-400'
-      : 'text-gray-300 hover:bg-gray-800/80 hover:text-gray-100'
-  }`
-}
-
-function settingsNavLinkClassName(isActive: boolean): string {
-  return `${NAV_LINK_BASE} inline-flex items-center gap-1.5 border ${
-    isActive
-      ? 'border-gray-600 bg-gray-800 text-gray-100'
-      : 'border-transparent text-gray-300 hover:border-gray-700 hover:bg-gray-800/80 hover:text-gray-100'
-  }`
-}
-
 export function FishSniperSignedInAppShell(options: {
   fishSniperApiBaseUrl: string
   fishSniperAccessTokenJwt: string
@@ -57,21 +44,25 @@ export function FishSniperSignedInAppShell(options: {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
-      <header className="sticky top-0 z-20 border-b border-gray-800 bg-gray-950/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-2.5">
+    <div className="flex min-h-screen flex-col bg-[#010409] text-slate-100">
+      <header className="sticky top-0 z-20 border-b border-[#3dff8a]/15 bg-[#010409]/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-2.5 sm:px-8">
           <div className="flex min-w-0 flex-1 items-center gap-5">
-            <span className="shrink-0 text-sm font-semibold tracking-tight text-emerald-400">
+            <span className="shrink-0 text-sm font-bold tracking-tight text-[#5dff9a]">
               FishSniper
             </span>
             <nav className="flex items-center gap-1" aria-label="Primary">
               <NavLink
                 to="/strategy"
-                className={({ isActive }) => primaryNavLinkClassName(isActive)}
+                end
+                className={({ isActive }) => fishSniperTacticalPrimaryNavLinkClassName(isActive)}
               >
                 Strategy
               </NavLink>
-              <NavLink to="/logs" className={({ isActive }) => primaryNavLinkClassName(isActive)}>
+              <NavLink
+                to="/logs"
+                className={({ isActive }) => fishSniperTacticalPrimaryNavLinkClassName(isActive)}
+              >
                 My Logs
               </NavLink>
             </nav>
@@ -79,7 +70,7 @@ export function FishSniperSignedInAppShell(options: {
           <div className="flex shrink-0 items-center gap-2">
             <NavLink
               to="/settings/profile"
-              className={({ isActive }) => settingsNavLinkClassName(isActive)}
+              className={({ isActive }) => fishSniperTacticalSettingsNavLinkClassName(isActive)}
               aria-label="Settings"
             >
               <FishSniperSettingsGearIcon />
@@ -87,8 +78,11 @@ export function FishSniperSignedInAppShell(options: {
             </NavLink>
             <button
               type="button"
-              className={`${NAV_LINK_BASE} text-gray-300 hover:bg-gray-800/80 hover:text-gray-100`}
-              onClick={() => options.onSignOut()}
+              className={`${fishSniperTacticalNavLinkBaseClassName} text-slate-400 hover:bg-white/5 hover:text-slate-100`}
+              onClick={() => {
+                clearStrategyReportSessionStorage()
+                options.onSignOut()
+              }}
             >
               Sign out
             </button>
@@ -96,7 +90,7 @@ export function FishSniperSignedInAppShell(options: {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 py-4">
+      <main className="flex-1 overflow-y-auto px-4 py-4 lg:px-8">
         <Outlet context={outletContext} />
       </main>
     </div>

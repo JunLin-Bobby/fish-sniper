@@ -4,6 +4,16 @@ import { useOutletContext } from 'react-router-dom'
 import { readEmailFromFishSniperAccessTokenJwt } from '../../auth/readEmailFromFishSniperAccessTokenJwt.ts'
 import { useFishSniperSaveRegionOnboardingMutation } from '../../hooks/useFishSniperSaveRegionOnboardingMutation.ts'
 import type { FishSniperSignedInOutletContextValue } from '../../layout/fishSniperSignedInOutletContext.ts'
+import {
+  fishSniperTacticalCardHeadingClassName,
+  fishSniperTacticalCardClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalFieldLabelClassName,
+  fishSniperTacticalInputClassName,
+  fishSniperTacticalMutedTextClassName,
+  fishSniperTacticalPrimaryButtonClassName,
+  fishSniperTacticalSuccessTextClassName,
+} from '../../ui/fishSniperTacticalUi.ts'
 
 export function FishSniperSettingsProfilePanel() {
   const {
@@ -44,48 +54,43 @@ export function FishSniperSettingsProfilePanel() {
   }
 
   return (
-    <section className="space-y-6">
+    <section className={`${fishSniperTacticalCardClassName} space-y-6`}>
       <div>
-        <h2 className="text-lg font-semibold text-gray-100">Profile</h2>
-        <p className="mt-1 text-sm leading-relaxed text-gray-400">
+        <h2 className={fishSniperTacticalCardHeadingClassName}>Profile</h2>
+        <p className={`mt-2 ${fishSniperTacticalMutedTextClassName}`}>
           Your default region is used for weather on the strategy screen when you do not override
           it per trip.
         </p>
       </div>
 
       <div className="space-y-2">
-        <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">
-          Email
-        </span>
-        <p className="text-sm text-gray-300">{displayEmail}</p>
+        <span className={fishSniperTacticalFieldLabelClassName}>Email</span>
+        <p className="text-sm text-slate-200">{displayEmail}</p>
       </div>
 
-      <div className="space-y-2">
-        <label
-          htmlFor="settings-default-region"
-          className="block text-xs font-medium uppercase tracking-wide text-gray-400"
-        >
-          Default region
-        </label>
+      <label htmlFor="settings-default-region" className={fishSniperTacticalFieldLabelClassName}>
+        Default region
         <input
           id="settings-default-region"
-          className="w-full max-w-md rounded-md bg-gray-900 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+          className={fishSniperTacticalInputClassName}
           placeholder="City name, e.g. Boston"
           value={profileRegionInput}
           onChange={(event) => setProfileRegionInput(event.target.value)}
         />
-      </div>
+      </label>
 
       {saveRegionMutation.saveRegionHardFailureMessage ? (
-        <p className="text-sm text-red-400">{saveRegionMutation.saveRegionHardFailureMessage}</p>
+        <p className={fishSniperTacticalErrorBannerClassName}>
+          {saveRegionMutation.saveRegionHardFailureMessage}
+        </p>
       ) : null}
       {saveSuccessMessage ? (
-        <p className="text-sm text-emerald-400">{saveSuccessMessage}</p>
+        <p className={fishSniperTacticalSuccessTextClassName}>{saveSuccessMessage}</p>
       ) : null}
 
       <button
         type="button"
-        className="rounded-md bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-semibold px-4 py-2 text-sm disabled:opacity-50"
+        className={`${fishSniperTacticalPrimaryButtonClassName} max-w-xs`}
         disabled={
           saveRegionMutation.isSavingRegion || profileRegionInput.trim().length === 0
         }

@@ -14,6 +14,16 @@ import {
   readFishSniperGoogleOAuthPublicConfigFromEnvOrNull,
   readFishSniperShouldShowEmailOtpLoginFromEnv,
 } from '../config/readFishSniperPublicEnv.ts'
+import { FishSniperTacticalAuthShell } from '../ui/FishSniperTacticalAuthShell.tsx'
+import {
+  fishSniperTacticalAuthCardClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalGoogleButtonClassName,
+  fishSniperTacticalInputClassName,
+  fishSniperTacticalMutedTextClassName,
+  fishSniperTacticalOtpInputClassName,
+  fishSniperTacticalPrimaryButtonClassName,
+} from '../ui/fishSniperTacticalUi.ts'
 
 function isLikelyValidEmailAddress(rawEmailAddress: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmailAddress.trim())
@@ -189,48 +199,34 @@ export function FishSniperEmailOtpSignInPage(options: {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center px-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-emerald-400 tracking-tight">FishSniper</h1>
-          {activeSignInStep === 'email' ? (
-            <>
-              <h2 className="text-xl font-semibold">Sign in to FishSniper</h2>
-              {shouldShowEmailOtpLoginBlock ? (
-                <p className="text-sm text-gray-500">
-                  Continue with Google, or use email to receive a verification code.
-                </p>
-              ) : (
-                <p className="text-sm text-gray-500">Continue with your Google account.</p>
-              )}
-            </>
-          ) : (
-            <>
-              <h2 className="text-xl font-semibold">Check your email</h2>
-              <p className="text-sm text-gray-500">
-                We sent a 6-digit code to {emailAddressInput.trim()}
-              </p>
-            </>
-          )}
-        </div>
-
+    <FishSniperTacticalAuthShell
+      title="FishSniper"
+      subtitle={
+        activeSignInStep === 'email'
+          ? shouldShowEmailOtpLoginBlock
+            ? 'Continue with Google, or use email to receive a verification code.'
+            : 'Continue with your Google account.'
+          : `We sent a 6-digit code to ${emailAddressInput.trim()}`
+      }
+    >
+      <div className={fishSniperTacticalAuthCardClassName}>
         {activeSignInStep === 'email' && googleOAuthPublicConfig ? (
           <div className="space-y-3">
             <button
               type="button"
-              className="w-full rounded-md bg-white text-gray-900 font-semibold py-2 text-sm hover:bg-gray-200"
+              className={fishSniperTacticalGoogleButtonClassName}
               onClick={() => void handleClickContinueWithGoogle()}
             >
               Continue with Google
             </button>
             {googleSignInHardFailureMessage ? (
-              <p className="text-sm text-red-400">{googleSignInHardFailureMessage}</p>
+              <p className={fishSniperTacticalErrorBannerClassName}>{googleSignInHardFailureMessage}</p>
             ) : null}
             {shouldShowEmailOtpLoginBlock ? (
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-gray-500">
-                <span className="h-px flex-1 bg-gray-800" />
+              <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-slate-500">
+                <span className="h-px flex-1 bg-white/10" />
                 or use email
-                <span className="h-px flex-1 bg-gray-800" />
+                <span className="h-px flex-1 bg-white/10" />
               </div>
             ) : null}
           </div>
@@ -239,7 +235,7 @@ export function FishSniperEmailOtpSignInPage(options: {
         {shouldShowEmailOtpLoginBlock && activeSignInStep === 'email' ? (
           <div className="space-y-3">
             <input
-              className="w-full rounded-md bg-gray-900 border border-gray-800 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+              className={fishSniperTacticalInputClassName}
               type="email"
               placeholder="you@example.com"
               value={emailAddressInput}
@@ -247,11 +243,11 @@ export function FishSniperEmailOtpSignInPage(options: {
               onChange={(event) => setEmailAddressInput(event.target.value)}
             />
             {sendOtpHardFailureMessage ? (
-              <p className="text-sm text-red-400">{sendOtpHardFailureMessage}</p>
+              <p className={fishSniperTacticalErrorBannerClassName}>{sendOtpHardFailureMessage}</p>
             ) : null}
             <button
               type="button"
-              className="w-full rounded-md bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-semibold py-2 text-sm disabled:opacity-50"
+              className={fishSniperTacticalPrimaryButtonClassName}
               disabled={isSendingEmailOtp}
               onClick={() => void handleSendEmailOtp()}
             >
@@ -271,7 +267,7 @@ export function FishSniperEmailOtpSignInPage(options: {
                   }}
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  className="w-full text-center rounded-md bg-gray-900 border border-gray-800 py-2 text-lg outline-none focus:border-emerald-500"
+                  className={fishSniperTacticalOtpInputClassName}
                   value={digitChar}
                   maxLength={1}
                   onChange={(event) =>
@@ -283,12 +279,12 @@ export function FishSniperEmailOtpSignInPage(options: {
             </div>
 
             {verifyOtpHardFailureMessage ? (
-              <p className="text-sm text-red-400">{verifyOtpHardFailureMessage}</p>
+              <p className={fishSniperTacticalErrorBannerClassName}>{verifyOtpHardFailureMessage}</p>
             ) : null}
 
             <button
               type="button"
-              className="w-full rounded-md bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-semibold py-2 text-sm disabled:opacity-50"
+              className={fishSniperTacticalPrimaryButtonClassName}
               disabled={isVerifyingEmailOtp}
               onClick={() => void handleVerifyEmailOtp()}
             >
@@ -298,7 +294,7 @@ export function FishSniperEmailOtpSignInPage(options: {
             <div className="text-center text-sm">
               <button
                 type="button"
-                className="text-emerald-400 disabled:text-gray-600 disabled:cursor-not-allowed"
+                className="cursor-pointer text-[#5dff9a] transition-colors duration-200 hover:text-[#3dff8a] disabled:cursor-not-allowed disabled:text-slate-600"
                 disabled={resendCooldownSecondsRemaining > 0 || isSendingEmailOtp}
                 onClick={() => void handleSendEmailOtp()}
               >
@@ -310,7 +306,7 @@ export function FishSniperEmailOtpSignInPage(options: {
 
             <button
               type="button"
-              className="w-full text-sm text-gray-500 hover:text-gray-300"
+              className={`w-full ${fishSniperTacticalMutedTextClassName} transition-colors duration-200 hover:text-slate-200`}
               onClick={() => {
                 setActiveSignInStep('email')
                 setVerifyOtpHardFailureMessage(null)
@@ -322,6 +318,6 @@ export function FishSniperEmailOtpSignInPage(options: {
           </div>
         ) : null}
       </div>
-    </div>
+    </FishSniperTacticalAuthShell>
   )
 }

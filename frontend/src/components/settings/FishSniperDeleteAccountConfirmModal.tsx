@@ -1,5 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
+import {
+  fishSniperTacticalDangerButtonClassName,
+  fishSniperTacticalErrorBannerClassName,
+  fishSniperTacticalGhostButtonClassName,
+  fishSniperTacticalInputClassName,
+  fishSniperTacticalModalPanelClassName,
+  fishSniperTacticalMutedTextClassName,
+} from '../../ui/fishSniperTacticalUi.ts'
+
 type FishSniperDeleteAccountModalStep = 'confirm_intent' | 'type_delete'
 
 export function FishSniperDeleteAccountConfirmModal(options: {
@@ -34,23 +43,19 @@ export function FishSniperDeleteAccountConfirmModal(options: {
     <FishSniperModalBackdrop onBackdropClick={resetAndClose}>
       {modalStep === 'confirm_intent' ? (
         <>
-          <h2 className="text-lg font-semibold text-gray-100">Delete your account?</h2>
-          <ul className="list-disc pl-5 text-sm text-gray-300 space-y-1">
+          <h2 className="text-lg font-semibold text-slate-100">Delete your account?</h2>
+          <ul className={`list-disc space-y-1 pl-5 ${fishSniperTacticalMutedTextClassName}`}>
             <li>Your fishing logs and preferences will be permanently removed.</li>
             <li>You will be signed out immediately.</li>
             <li>This action cannot be undone.</li>
           </ul>
           <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-md border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
-              onClick={resetAndClose}
-            >
+            <button type="button" className={fishSniperTacticalGhostButtonClassName} onClick={resetAndClose}>
               Cancel
             </button>
             <button
               type="button"
-              className="rounded-md bg-red-600 hover:bg-red-500 text-white font-semibold px-3 py-2 text-sm"
+              className={fishSniperTacticalDangerButtonClassName}
               onClick={() => {
                 setModalStep('type_delete')
                 setTypedConfirmation('')
@@ -62,12 +67,12 @@ export function FishSniperDeleteAccountConfirmModal(options: {
         </>
       ) : (
         <>
-          <h2 className="text-lg font-semibold text-gray-100">Confirm account deletion</h2>
-          <p className="text-sm text-gray-300">
-            Type <span className="font-mono font-semibold text-gray-100">Delete</span> to confirm.
+          <h2 className="text-lg font-semibold text-slate-100">Confirm account deletion</h2>
+          <p className={fishSniperTacticalMutedTextClassName}>
+            Type <span className="font-mono font-semibold text-slate-100">Delete</span> to confirm.
           </p>
           <input
-            className="w-full rounded-md bg-gray-950 border border-gray-700 px-3 py-2 text-sm outline-none focus:border-red-500 font-mono"
+            className={`${fishSniperTacticalInputClassName} font-mono focus:border-rose-500/60 focus:ring-rose-500/20`}
             value={typedConfirmation}
             autoComplete="off"
             spellCheck={false}
@@ -78,12 +83,14 @@ export function FishSniperDeleteAccountConfirmModal(options: {
             onContextMenu={(event) => event.preventDefault()}
           />
           {options.deleteAccountHardFailureMessage ? (
-            <p className="text-sm text-red-400">{options.deleteAccountHardFailureMessage}</p>
+            <p className={fishSniperTacticalErrorBannerClassName}>
+              {options.deleteAccountHardFailureMessage}
+            </p>
           ) : null}
           <div className="flex justify-end gap-2">
             <button
               type="button"
-              className="rounded-md border border-gray-700 px-3 py-2 text-sm text-gray-200 hover:bg-gray-800"
+              className={fishSniperTacticalGhostButtonClassName}
               disabled={options.isDeletingAccount}
               onClick={resetAndClose}
             >
@@ -91,11 +98,11 @@ export function FishSniperDeleteAccountConfirmModal(options: {
             </button>
             <button
               type="button"
-              className="rounded-md bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-semibold px-3 py-2 text-sm"
+              className={`${fishSniperTacticalDangerButtonClassName} disabled:opacity-50`}
               disabled={typedConfirmation !== 'Delete' || options.isDeletingAccount}
               onClick={() => options.onConfirmDelete()}
             >
-              {options.isDeletingAccount ? 'Deleting…' : 'DELETE'}
+              {options.isDeletingAccount ? 'Deleting…' : 'Delete'}
             </button>
           </div>
         </>
@@ -117,7 +124,7 @@ function FishSniperModalBackdrop(options: {
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-md rounded-lg border border-gray-800 bg-gray-900 p-5 shadow-xl space-y-4"
+        className={`${fishSniperTacticalModalPanelClassName} space-y-4`}
         onClick={(event) => event.stopPropagation()}
       >
         {options.children}
@@ -125,4 +132,3 @@ function FishSniperModalBackdrop(options: {
     </div>
   )
 }
-
