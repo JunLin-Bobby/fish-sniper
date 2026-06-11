@@ -1,4 +1,5 @@
 import type {
+  BassStrategyRecommendationTacticalRole,
   FishSniperStrategyTargetSpecies,
   GenerateBassStrategySuccessResponsePayload,
 } from '../api/fishSniperApiTypes.ts'
@@ -20,8 +21,42 @@ export type StoredStrategyReport = {
   requestSummary: StrategyReportRequestSummary
 }
 
+const TACTICAL_ROLES: ReadonlySet<BassStrategyRecommendationTacticalRole> = new Set([
+  'locator_bait',
+  'follow_up_bait',
+  'finesse_cleanup',
+])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+function isTodaysPattern(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.headline === 'string' &&
+    typeof value.subline === 'string'
+  )
+}
+
+function isHoldingZoneItem(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.label === 'string' &&
+    typeof value.weight_pct === 'number'
+  )
+}
+
+function isRecommendationItem(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.tactical_role === 'string' &&
+    TACTICAL_ROLES.has(value.tactical_role as BassStrategyRecommendationTacticalRole) &&
+    typeof value.lure_type === 'string' &&
+    typeof value.lure_color === 'string' &&
+    typeof value.reason === 'string' &&
+    typeof value.retrieve_technique === 'string'
+  )
 }
 
 function isStoredStrategyReport(value: unknown): value is StoredStrategyReport {
@@ -46,22 +81,22 @@ function isStoredStrategyReport(value: unknown): value is StoredStrategyReport {
   }
   const payload = value.successPayload
   if (
-    typeof payload.fish_state !== 'string' ||
+    !isTodaysPattern(payload.todays_pattern) ||
+    typeof payload.confidence_pct !== 'number' ||
     typeof payload.confidence_note !== 'string' ||
+    typeof payload.fish_state !== 'string' ||
     typeof payload.generated_at !== 'string' ||
     payload.fallback !== false ||
+    !Array.isArray(payload.holding_zones) ||
+    payload.holding_zones.length !== 3 ||
+    !payload.holding_zones.every(isHoldingZoneItem) ||
     !Array.isArray(payload.recommendations) ||
-    payload.recommendations.length !== 3
+    payload.recommendations.length !== 3 ||
+    !payload.recommendations.every(isRecommendationItem)
   ) {
     return false
   }
-  return payload.recommendations.every(
-    (item) =>
-      isRecord(item) &&
-      typeof item.lure_type === 'string' &&
-      typeof item.lure_color === 'string' &&
-      typeof item.retrieve_technique === 'string',
-  )
+  return true
 }
 
 export function writeStrategyReportToSessionStorage(report: StoredStrategyReport): void {

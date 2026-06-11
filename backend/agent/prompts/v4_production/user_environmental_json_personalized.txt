@@ -1,0 +1,41 @@
+Environmental conditions:
+- Weather region: {region}
+- Fishing spot (today): {fishing_location}
+- Fishing scene: {fishing_scene}
+- Water depth: {water_depth_m}m
+- Temperature: {temperature_c}°C
+- Pressure: {pressure_hpa} hPa
+- Wind speed: {wind_speed_ms} m/s
+- Weather: {condition_code}
+- Target species: {target_species}
+
+Respond ONLY with a valid JSON object containing exactly these fields:
+{{
+  "todays_pattern": {{
+    "headline": "Short label: seasonal phase + species (not a full paragraph)",
+    "subline": "One line on today's tactical zones (e.g. Shallow flats + windblown banks)"
+  }},
+  "confidence_pct": 82,
+  "confidence_note": "One concise English sentence; explicitly reference the angler's reference past trip (date and location) and tie your rationale to that trip plus today's conditions.",
+  "holding_zones": [
+    {{ "label": "Windblown rocky point", "weight_pct": 70 }},
+    {{ "label": "First drop outside spawning flat", "weight_pct": 20 }},
+    {{ "label": "Isolated wood in 2m depth", "weight_pct": 10 }}
+  ],
+  "fish_state": "Exactly 2 short English sentences on bass behavior today and why, tied to the listed conditions. Do not repeat the todays_pattern headline (no markdown, no emoji).",
+  "recommendations": [
+    {{
+      "tactical_role": "locator_bait",
+      "lure_type": "Lure category for search / coverage / reaction",
+      "lure_color": "Color or pattern",
+      "reason": "Why this lure opens the combo for today's pattern (one or two sentences).",
+      "retrieve_technique": "How to work the lure: cadence, speed, pauses (one or two sentences max)."
+    }},
+    {{ "tactical_role": "follow_up_bait", "...": "..." }},
+    {{ "tactical_role": "finesse_cleanup", "...": "..." }}
+  ]
+}}
+The holding_zones array MUST contain exactly three objects; each label describes structure/position (not a lure name); weight_pct values MUST sum to 100.
+The recommendations array MUST contain exactly three objects with tactical_role values locator_bait, follow_up_bait, finesse_cleanup in that order. These are a combo chain, not ranked by quality.
+reason explains lure choice for that combo phase; retrieve_technique explains rod work only. Each string field must be non-empty.
+Do not include any explanation outside the JSON.

@@ -1,8 +1,11 @@
 import type {
   BassStrategyRecommendationPayload,
   GenerateBassStrategySuccessResponsePayload,
+  HoldingZoneItemPayload,
   ReferencedLogPayload,
+  TodaysPatternPayload,
 } from '../../api/fishSniperApiTypes.ts'
+import { getBassStrategyTacticalRoleDisplay } from '../bassStrategyTacticalRoleDisplay.ts'
 import { formatStrategyReportTimestamp } from '../formatStrategyReportTimestamp.ts'
 import type { StrategyReportRequestSummary } from '../strategyReportSessionStorage.ts'
 import {
@@ -19,32 +22,6 @@ const glassPanelClassName = fishSniperTacticalPanelClassName
 const sectionTitleClassName = `${fishSniperTacticalSectionTitleClassName} mb-4`
 const metaChipClassName = fishSniperTacticalChipClassName
 const bodyTextClassName = fishSniperTacticalBodyTextClassName
-
-const PATTERN_TIER_LABELS = ['Primary pattern', 'Backup pattern', 'Alternate pattern'] as const
-
-function capitalizeWord(value: string): string {
-  if (value.length === 0) {
-    return value
-  }
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
-function derivePatternHeadline(fishState: string): string {
-  const firstSentence = fishState.split(/[.!?](?:\s|$)/)[0]?.trim()
-  if (firstSentence && firstSentence.length > 0) {
-    return firstSentence
-  }
-  return fishState.length > 140 ? `${fishState.slice(0, 137)}…` : fishState
-}
-
-function derivePatternSubline(requestSummary: StrategyReportRequestSummary): string {
-  return `${capitalizeWord(requestSummary.fishing_scene)} · ${requestSummary.fishing_location} · ${requestSummary.water_depth_m} m`
-}
-
-function extractConfidencePercent(confidenceNote: string): string | null {
-  const match = confidenceNote.match(/(\d{1,3})%/)
-  return match ? `${match[1]}%` : null
-}
 
 function ReferenceLogSidebarPanel(options: { referencedLog: ReferencedLogPayload }) {
   const { referencedLog } = options
@@ -65,13 +42,50 @@ function ReferenceLogSidebarPanel(options: { referencedLog: ReferencedLogPayload
   )
 }
 
-function PatternStrategyCard(options: {
-  tierLabel: string
-  recommendation: BassStrategyRecommendationPayload
-  isPrimary: boolean
+function LikelyHoldingZonesPanel(options: {
+  holdingZones: [
+    HoldingZoneItemPayload,
+    HoldingZoneItemPayload,
+    HoldingZoneItemPayload,
+  ]
 }) {
-  const { tierLabel, recommendation, isPrimary } = options
-  const borderClassName = isPrimary
+  const { holdingZones } = options
+
+  return (
+    <section className={`${glassPanelClassName} border-amber-500/20 bg-amber-950/10`} aria-label="Likely holding zone">
+      <p className={`${sectionTitleClassName} text-amber-200/90`}>Likely holding zone</p>
+      <ul className="flex list-none flex-col gap-4 p-0">
+        {holdingZones.map((zone) => (
+          <li key={zone.label}>
+            <div className="mb-2 flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium text-slate-200">{zone.label}</span>
+              <span className="shrink-0 tabular-nums text-amber-200/90">{zone.weight_pct}%</span>
+            </div>
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-white/10"
+              role="presentation"
+              aria-hidden="true"
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-500/80 to-amber-300/70"
+                style={{ width: `${zone.weight_pct}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function PatternStrategyCard(options: {
+  roleTitle: string
+  roleSubtitle: string
+  recommendation: BassStrategyRecommendationPayload
+  isLocatorPhase: boolean
+}) {
+  const { roleTitle, roleSubtitle, recommendation, isLocatorPhase } = options
+  const borderClassName = isLocatorPhase
     ? 'border-[#3dff8a]/35 bg-[#3dff8a]/[0.06] shadow-[0_0_32px_rgba(61,255,138,0.08)]'
     : 'border-white/15 bg-slate-950/55'
 
@@ -79,16 +93,23 @@ function PatternStrategyCard(options: {
     <article className={`rounded-xl border p-6 ${borderClassName}`}>
       <p
         className={`mb-3 text-[10px] font-bold uppercase tracking-[0.2em] ${
-          isPrimary ? 'text-[#5dff9a]' : 'text-amber-400/90'
+          isLocatorPhase ? 'text-[#5dff9a]' : 'text-amber-400/90'
         }`}
       >
-        {tierLabel}
+        {roleTitle}
       </p>
+      <p className={`${fishSniperTacticalMutedTextClassName} mb-4 text-sm`}>{roleSubtitle}</p>
       <h3 className="text-xl font-bold tracking-tight text-slate-50">{recommendation.lure_type}</h3>
       <p className="mt-1 text-sm text-slate-400">{recommendation.lure_color}</p>
       <div className="mt-4 border-t border-white/10 pt-4">
         <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
           Reason
+        </p>
+        <p className={`${bodyTextClassName} text-slate-300`}>{recommendation.reason}</p>
+      </div>
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Retrieve
         </p>
         <p className={`${bodyTextClassName} text-slate-300`}>{recommendation.retrieve_technique}</p>
       </div>
@@ -97,12 +118,12 @@ function PatternStrategyCard(options: {
 }
 
 function TodaysPatternHeroCard(options: {
-  requestSummary: StrategyReportRequestSummary
-  fishState: string
+  todaysPattern: TodaysPatternPayload
+  targetSpecies: string
+  confidencePct: number
   confidenceNote: string
 }) {
-  const { requestSummary, fishState, confidenceNote } = options
-  const confidencePercent = extractConfidencePercent(confidenceNote)
+  const { todaysPattern, targetSpecies, confidencePct, confidenceNote } = options
 
   return (
     <section
@@ -111,20 +132,16 @@ function TodaysPatternHeroCard(options: {
     >
       <p className={`${fishSniperTacticalEyebrowClassName} mb-4`}>Today&apos;s pattern</p>
       <h2 className="mt-2 text-2xl font-bold leading-tight tracking-tight text-slate-50 sm:text-3xl">
-        {derivePatternHeadline(fishState)}
+        {todaysPattern.headline}
       </h2>
-      <p className="mt-2 text-base font-medium text-amber-200/90">{derivePatternSubline(requestSummary)}</p>
-      <p className="mt-1 text-sm text-slate-400">{requestSummary.target_species}</p>
+      <p className="mt-2 text-base font-medium text-amber-200/90">{todaysPattern.subline}</p>
+      <p className="mt-1 text-sm text-slate-400">{targetSpecies}</p>
       <div className="mt-5 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-white/10 pt-5">
         <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           Confidence
         </span>
-        {confidencePercent ? (
-          <span className="text-2xl font-bold tabular-nums text-[#5dff9a]">{confidencePercent}</span>
-        ) : null}
-        <p className={`${confidencePercent ? 'text-sm' : 'text-base'} leading-relaxed text-slate-300`}>
-          {confidenceNote}
-        </p>
+        <span className="text-2xl font-bold tabular-nums text-[#5dff9a]">{confidencePct}%</span>
+        <p className="text-sm leading-relaxed text-slate-300">{confidenceNote}</p>
       </div>
     </section>
   )
@@ -160,8 +177,9 @@ export function StrategyReportFieldManualDocument(options: {
       </header>
 
       <TodaysPatternHeroCard
-        requestSummary={requestSummary}
-        fishState={successPayload.fish_state}
+        todaysPattern={successPayload.todays_pattern}
+        targetSpecies={requestSummary.target_species}
+        confidencePct={successPayload.confidence_pct}
         confidenceNote={successPayload.confidence_note}
       />
 
@@ -213,14 +231,11 @@ export function StrategyReportFieldManualDocument(options: {
             </ul>
           </section>
 
+          <LikelyHoldingZonesPanel holdingZones={successPayload.holding_zones} />
+
           <section className={`${glassPanelClassName} border-emerald-500/20 bg-emerald-950/15`}>
             <p className={sectionTitleClassName}>Fish state</p>
-            <p className={bodyTextClassName}>{successPayload.fish_state}</p>
-          </section>
-
-          <section className={glassPanelClassName}>
-            <p className={`${sectionTitleClassName} text-slate-500`}>Confidence</p>
-            <p className={`${bodyTextClassName} text-slate-300`}>{successPayload.confidence_note}</p>
+            <p className={`text-sm leading-relaxed text-slate-300`}>{successPayload.fish_state}</p>
           </section>
 
           {hasReferenceLog && successPayload.referenced_log ? (
@@ -233,14 +248,18 @@ export function StrategyReportFieldManualDocument(options: {
             Recommended presentations
           </p>
           <div className="flex flex-col gap-5">
-            {successPayload.recommendations.map((recommendation, index) => (
-              <PatternStrategyCard
-                key={`pattern-${index}`}
-                tierLabel={PATTERN_TIER_LABELS[index] ?? `Option ${index + 1}`}
-                recommendation={recommendation}
-                isPrimary={index === 0}
-              />
-            ))}
+            {successPayload.recommendations.map((recommendation, index) => {
+              const roleDisplay = getBassStrategyTacticalRoleDisplay(recommendation.tactical_role)
+              return (
+                <PatternStrategyCard
+                  key={`pattern-${recommendation.tactical_role}-${index}`}
+                  roleTitle={roleDisplay.title}
+                  roleSubtitle={roleDisplay.subtitle}
+                  recommendation={recommendation}
+                  isLocatorPhase={recommendation.tactical_role === 'locator_bait'}
+                />
+              )
+            })}
           </div>
         </section>
       </div>

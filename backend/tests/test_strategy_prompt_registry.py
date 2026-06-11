@@ -40,3 +40,20 @@ def test_assembler_uses_v1_production_by_default() -> None:
     )
     assert "no past records" in text
     assert "Largemouth Bass" in text
+
+
+def test_v4_production_templates_are_registered_and_loadable() -> None:
+    assert "v4_production" in list_registered_strategy_prompt_versions()
+    general_user = load_strategy_prompt_template_text(
+        prompt_version="v4_production",
+        template_name="user_environmental_json_general",
+    )
+    assert "todays_pattern" in general_user
+    assert "tactical_role" in general_user
+    assert "locator_bait" in general_user
+    general_system = load_strategy_prompt_template_text(
+        prompt_version="v4_production",
+        template_name="general_system",
+    )
+    assert "combo chain" in general_system
+    assert "locator_bait" in general_system

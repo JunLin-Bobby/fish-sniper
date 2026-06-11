@@ -596,9 +596,12 @@ async def node_finalize_success(
         rag_logs_used = 1
 
     success = GenerateBassStrategySuccessResponseBody(
+        todays_pattern=llm_payload.todays_pattern,
+        confidence_pct=llm_payload.confidence_pct,
+        confidence_note=llm_payload.confidence_note,
+        holding_zones=llm_payload.holding_zones,
         fish_state=llm_payload.fish_state,
         recommendations=llm_payload.recommendations,
-        confidence_note=llm_payload.confidence_note,
         weather_snapshot=WeatherSnapshotPayload(
             temperature_c=state["temperature_celsius"],
             pressure_hpa=state["pressure_hectopascals"],
@@ -714,10 +717,31 @@ def _langfuse_trace_strategy_output_summary(
         recs = body.get("recommendations")
         rec_count = len(recs) if isinstance(recs, list) else 0
         fish_state = body.get("fish_state")
+        holding_zones_raw = body.get("holding_zones")
+        holding_zones_summary: list[dict[str, object]] | None = None
+        if isinstance(holding_zones_raw, list):
+            holding_zones_summary = []
+            for zone in holding_zones_raw[:3]:
+                if isinstance(zone, dict):
+                    holding_zones_summary.append(
+                        {
+                            "label": zone.get("label"),
+                            "weight_pct": zone.get("weight_pct"),
+                        },
+                    )
+        todays_pattern_raw = body.get("todays_pattern")
+        todays_pattern_headline: str | None = None
+        if isinstance(todays_pattern_raw, dict):
+            headline = todays_pattern_raw.get("headline")
+            if isinstance(headline, str):
+                todays_pattern_headline = headline
         return {
             "outcome": "success",
             "fallback": False,
             "recommendation_count": rec_count,
+            "confidence_pct": body.get("confidence_pct"),
+            "todays_pattern_headline": todays_pattern_headline,
+            "holding_zones": holding_zones_summary,
             "fish_state_chars": len(str(fish_state)) if fish_state is not None else 0,
             "rag_logs_used": body.get("rag_logs_used"),
             "generated_at": body.get("generated_at"),

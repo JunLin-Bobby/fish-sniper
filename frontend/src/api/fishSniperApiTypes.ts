@@ -85,9 +85,26 @@ export interface WeatherSnapshotPayload {
   condition_code: string
 }
 
+export type BassStrategyRecommendationTacticalRole =
+  | 'locator_bait'
+  | 'follow_up_bait'
+  | 'finesse_cleanup'
+
+export interface TodaysPatternPayload {
+  headline: string
+  subline: string
+}
+
+export interface HoldingZoneItemPayload {
+  label: string
+  weight_pct: number
+}
+
 export interface BassStrategyRecommendationPayload {
+  tactical_role: BassStrategyRecommendationTacticalRole
   lure_type: string
   lure_color: string
+  reason: string
   retrieve_technique: string
 }
 
@@ -102,9 +119,20 @@ export interface ReferencedLogPayload {
 }
 
 export interface GenerateBassStrategySuccessResponsePayload {
-  fish_state: string
-  recommendations: [BassStrategyRecommendationPayload, BassStrategyRecommendationPayload, BassStrategyRecommendationPayload]
+  todays_pattern: TodaysPatternPayload
+  confidence_pct: number
   confidence_note: string
+  holding_zones: [
+    HoldingZoneItemPayload,
+    HoldingZoneItemPayload,
+    HoldingZoneItemPayload,
+  ]
+  fish_state: string
+  recommendations: [
+    BassStrategyRecommendationPayload,
+    BassStrategyRecommendationPayload,
+    BassStrategyRecommendationPayload,
+  ]
   weather_snapshot: WeatherSnapshotPayload
   /** 0 = no personal log used; 1 = `referenced_log` is populated (P4 Part 2). */
   rag_logs_used: number

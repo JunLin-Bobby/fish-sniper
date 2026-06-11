@@ -23,22 +23,41 @@ from tests.conftest import FakeFishSniperEmbeddingClient, InMemoryFishSniperPers
 
 _STRATEGY_LLM_JSON = json.dumps(
     {
-        "fish_state": "Bass are holding tight to cover with this wind.",
+        "todays_pattern": {
+            "headline": "Post-Spawn Largemouth",
+            "subline": "Shallow cover + wind lanes",
+        },
+        "confidence_pct": 82,
         "confidence_note": "Based on your prior trip and today's weather.",
+        "holding_zones": [
+            {"label": "Windblown rocky point", "weight_pct": 70},
+            {"label": "First drop outside flat", "weight_pct": 20},
+            {"label": "Isolated wood in 2m depth", "weight_pct": 10},
+        ],
+        "fish_state": (
+            "Bass are holding tight to cover with this wind. "
+            "Expect short feeding windows near structure."
+        ),
         "recommendations": [
             {
+                "tactical_role": "locator_bait",
                 "lure_type": "Jig",
                 "lure_color": "Black",
+                "reason": "Matches cover-oriented mood and prior trip success.",
                 "retrieve_technique": "Slow drag with pauses.",
             },
             {
+                "tactical_role": "follow_up_bait",
                 "lure_type": "Crankbait",
                 "lure_color": "Chartreuse",
+                "reason": "Covers slightly deeper edges if fish slide off the bank.",
                 "retrieve_technique": "Steady retrieve.",
             },
             {
+                "tactical_role": "finesse_cleanup",
                 "lure_type": "Ned rig",
                 "lure_color": "Brown",
+                "reason": "Finesse change-up for lock-jaw fish on the bottom.",
                 "retrieve_technique": "Drag and deadstick.",
             },
         ],
@@ -179,6 +198,12 @@ def test_post_strategy_with_matching_log_returns_referenced_log(
     assert payload["referenced_log"]["log_id"] == str(log_id)
     assert payload["referenced_log"]["fishing_location"] == "Close pond"
     assert payload["referenced_log"]["caught_count"] == 2
+    assert payload["todays_pattern"]["headline"] == "Post-Spawn Largemouth"
+    assert payload["confidence_pct"] == 82
+    assert len(payload["holding_zones"]) == 3
+    assert sum(zone["weight_pct"] for zone in payload["holding_zones"]) == 100
+    assert payload["recommendations"][0]["tactical_role"] == "locator_bait"
+    assert payload["recommendations"][0]["reason"]
 
 
 @patch(

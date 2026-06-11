@@ -1,4 +1,13 @@
-"""Pydantic models for POST /agent/strategy."""
+"""Pydantic models for agent routes (strategy + model catalog).
+
+Schema layers (top → bottom in this file):
+
+1. **HTTP request** — ``POST /agent/strategy`` body from the client.
+2. **LLM structured output** — JSON shape the model must return; validated in LangGraph Step 5.
+3. **HTTP response parts** — Weather echo and RAG reference log attached to success payloads.
+4. **HTTP response envelopes** — ``POST /agent/strategy`` success vs fallback discriminated union.
+5. **Model catalog** — ``GET /agent/models`` list for the strategy UI.
+"""
 
 from __future__ import annotations
 
@@ -8,11 +17,20 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# =============================================================================
+# Shared literals
+# =============================================================================
+
 FishSniperStrategyTargetSpeciesLiteral = Literal["Largemouth Bass", "Smallmouth Bass"]
 
 
+# =============================================================================
+# Layer 1 — HTTP request (POST /agent/strategy body)
+# =============================================================================
+
+
 class ManualWeatherPayload(BaseModel):
-    """Weather override used when the caller wants to bypass the automatic OpenWeatherMap fetch."""
+    """Optional weather override on the strategy request (skips OpenWeatherMap)."""
 
     temperature_c: float = Field(description="Air temperature in degrees Celsius.")
     condition_code: str = Field(
@@ -77,30 +95,118 @@ class GenerateBassStrategyRequestBody(BaseModel):
         return self
 
 
-class WeatherSnapshotPayload(BaseModel):
-    """Weather fields echoed back with a successful strategy response."""
+# =============================================================================
+# Layer 2 — LLM structured output (LangGraph Step 5 validation)
+# =============================================================================
 
-    temperature_c: float = Field(description="Temperature in degrees Celsius.")
-    pressure_hpa: int = Field(description="Pressure in hectopascals.")
-    wind_speed_ms: float = Field(description="Wind speed in meters per second.")
-    condition_code: str = Field(description="Normalized FishSniper condition_code value.")
+BassStrategyRecommendationTacticalRoleLiteral = Literal[
+    "locator_bait",
+    "follow_up_bait",
+    "finesse_cleanup",
+]
+
+_EXPECTED_RECOMMENDATION_TACTICAL_ROLES: tuple[
+    BassStrategyRecommendationTacticalRoleLiteral,
+    ...,
+] = (
+    "locator_bait",
+    "follow_up_bait",
+    "finesse_cleanup",
+)
+
+FISH_STATE_MAX_LENGTH = 320
 
 
-class BassStrategyRecommendationItem(BaseModel):
-    """One ranked lure option from the structured LLM output."""
+def _validate_holding_zone_weights(holding_zones: list[HoldingZoneItem]) -> None:
+    if sum(zone.weight_pct for zone in holding_zones) != 100:
+        raise ValueError("holding_zones weight_pct must sum to 100")
 
-    lure_type: str = Field(description="Recommended lure category for this slot.")
-    lure_color: str = Field(description="Recommended color or pattern.")
-    retrieve_technique: str = Field(
-        description="How to work the lure (cadence, speed, pauses) for this option.",
+
+def _validate_recommendation_tactical_role_sequence(
+    recommendations: list[BassStrategyRecommendationItem],
+) -> None:
+    for index, (recommendation, expected_role) in enumerate(
+        zip(recommendations, _EXPECTED_RECOMMENDATION_TACTICAL_ROLES, strict=True),
+    ):
+        if recommendation.tactical_role != expected_role:
+            raise ValueError(
+                f"recommendations[{index}].tactical_role must be {expected_role!r}, "
+                f"got {recommendation.tactical_role!r}",
+            )
+
+
+class TodaysPatternPayload(BaseModel):
+    """Hero pattern headline for the tactical report (Today's Pattern)."""
+
+    headline: str = Field(description="Primary pattern label, e.g. Post-Spawn Largemouth.")
+    subline: str = Field(
+        description="Supporting pattern context, e.g. Shallow Flats + Windblown Banks.",
     )
 
-    @field_validator("lure_type", "lure_color", "retrieve_technique", mode="before")
+    @field_validator("headline", "subline", mode="before")
     @classmethod
     def strip_outer_whitespace(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
-    @field_validator("lure_type", "lure_color", "retrieve_technique")
+    @field_validator("headline", "subline")
+    @classmethod
+    def reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("todays_pattern headline and subline must be non-empty strings.")
+        return value
+
+
+class HoldingZoneItem(BaseModel):
+    """One weighted holding-zone hypothesis for Likely Holding Zone."""
+
+    label: str = Field(description="Short zone description for the report UI.")
+    weight_pct: int = Field(
+        ge=1,
+        le=100,
+        description="Relative weight for this zone; all three zones must sum to 100.",
+    )
+
+    @field_validator("label", mode="before")
+    @classmethod
+    def strip_outer_whitespace(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("label")
+    @classmethod
+    def reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("holding_zones label must be a non-empty string.")
+        return value
+
+
+class BassStrategyRecommendationItem(BaseModel):
+    """One lure in the day's tactical combo chain (not ranked by quality)."""
+
+    tactical_role: BassStrategyRecommendationTacticalRoleLiteral = Field(
+        description=(
+            "Combo phase: locator_bait (search/find fish), follow_up_bait (induce bite), "
+            "or finesse_cleanup (pressured or lethargic fish)."
+        ),
+    )
+    lure_type: str = Field(description="Recommended lure category for this slot.")
+    lure_color: str = Field(description="Recommended color or pattern.")
+    reason: str = Field(description="Why this lure fits today's pattern and conditions.")
+    retrieve_technique: str = Field(
+        description="How to work the lure (cadence, speed, pauses) for this option.",
+    )
+
+    @field_validator(
+        "lure_type",
+        "lure_color",
+        "reason",
+        "retrieve_technique",
+        mode="before",
+    )
+    @classmethod
+    def strip_outer_whitespace(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("lure_type", "lure_color", "reason", "retrieve_technique")
     @classmethod
     def reject_blank_strings(cls, value: str) -> str:
         if not value.strip():
@@ -109,20 +215,37 @@ class BassStrategyRecommendationItem(BaseModel):
 
 
 class BassStrategyStructuredLlmOutputBody(BaseModel):
-    """Shape of the single Gemini JSON object (Steps 5–6 validation)."""
+    """Shape of the single LLM JSON object parsed after Step 4 generation."""
 
-    fish_state: str = Field(
-        description="Short paragraph on how the target bass are likely behaving today.",
+    todays_pattern: TodaysPatternPayload = Field(
+        description="Structured Today's Pattern hero for the tactical report.",
+    )
+    confidence_pct: int = Field(
+        ge=0,
+        le=100,
+        description="Numeric confidence 0–100; complements confidence_note.",
     )
     confidence_note: str = Field(
         description="Rationale; no-log branch cites general best practices.",
+    )
+    holding_zones: Annotated[
+        list[HoldingZoneItem],
+        Field(
+            min_length=3,
+            max_length=3,
+            description="Exactly three weighted holding-zone hypotheses.",
+        ),
+    ]
+    fish_state: str = Field(
+        max_length=FISH_STATE_MAX_LENGTH,
+        description="Exactly two short sentences on likely bass behavior today.",
     )
     recommendations: Annotated[
         list[BassStrategyRecommendationItem],
         Field(
             min_length=3,
             max_length=3,
-            description="Exactly three ranked lure options (primary through tertiary).",
+            description="Exactly three combo-chain lure options (locator through finesse cleanup).",
         ),
     ]
 
@@ -138,9 +261,31 @@ class BassStrategyStructuredLlmOutputBody(BaseModel):
             raise ValueError("fish_state and confidence_note must be non-empty strings.")
         return value
 
+    @model_validator(mode="after")
+    def validate_holding_zone_weights_and_recommendation_tactical_roles(
+        self,
+    ) -> BassStrategyStructuredLlmOutputBody:
+        _validate_holding_zone_weights(self.holding_zones)
+        _validate_recommendation_tactical_role_sequence(self.recommendations)
+        return self
+
+
+# =============================================================================
+# Layer 3 — HTTP response parts (pipeline enrichment, not from LLM JSON)
+# =============================================================================
+
+
+class WeatherSnapshotPayload(BaseModel):
+    """Weather fields echoed on success (from OWM fetch or manual_weather on the request)."""
+
+    temperature_c: float = Field(description="Temperature in degrees Celsius.")
+    pressure_hpa: int = Field(description="Pressure in hectopascals.")
+    wind_speed_ms: float = Field(description="Wind speed in meters per second.")
+    condition_code: str = Field(description="Normalized FishSniper condition_code value.")
+
 
 class ReferencedLogPayload(BaseModel):
-    """Summary of the fishing log that informed the strategy (P4 Part 2 RAG)."""
+    """Summary of the personal fishing log used for RAG personalization."""
 
     log_id: UUID = Field(description="Referenced fishing log id.")
     log_date: date = Field(description="Date of the referenced trip (ISO calendar date).")
@@ -151,19 +296,43 @@ class ReferencedLogPayload(BaseModel):
     caught_count: int = Field(description="Fish caught on the referenced trip.")
 
 
-class GenerateBassStrategySuccessResponseBody(BaseModel):
-    """Successful structured strategy: fish state, three lure rows, and weather echo."""
+# =============================================================================
+# Layer 4 — HTTP response envelopes (POST /agent/strategy)
+# =============================================================================
 
-    fish_state: str = Field(description="Likely bass behavior / mood for today's conditions.")
+
+class GenerateBassStrategySuccessResponseBody(BaseModel):
+    """Successful strategy response returned to the client."""
+
+    todays_pattern: TodaysPatternPayload = Field(
+        description="Structured Today's Pattern hero for the tactical report.",
+    )
+    confidence_pct: int = Field(
+        ge=0,
+        le=100,
+        description="Numeric confidence 0–100; complements confidence_note.",
+    )
+    confidence_note: str = Field(description="Short rationale; P2 uses a no-log general note.")
+    holding_zones: Annotated[
+        list[HoldingZoneItem],
+        Field(
+            min_length=3,
+            max_length=3,
+            description="Exactly three weighted holding-zone hypotheses.",
+        ),
+    ]
+    fish_state: str = Field(
+        max_length=FISH_STATE_MAX_LENGTH,
+        description="Exactly two short sentences on likely bass behavior today.",
+    )
     recommendations: Annotated[
         list[BassStrategyRecommendationItem],
         Field(
             min_length=3,
             max_length=3,
-            description="Three ranked lure recommendations with retrieve guidance.",
+            description="Three combo-chain lure recommendations with tactical_role, reason, and retrieve guidance.",
         ),
     ]
-    confidence_note: str = Field(description="Short rationale; P2 uses a no-log general note.")
     weather_snapshot: WeatherSnapshotPayload = Field(
         description="Weather used for generation (live or manual).",
     )
@@ -177,13 +346,38 @@ class GenerateBassStrategySuccessResponseBody(BaseModel):
     generated_at: datetime = Field(description="UTC timestamp when the response was finalized.")
     fallback: Literal[False] = Field(default=False, description="Always false for this shape.")
 
+    @field_validator("fish_state", "confidence_note", mode="before")
+    @classmethod
+    def strip_outer_whitespace(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("fish_state", "confidence_note")
+    @classmethod
+    def reject_blank_strings(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("fish_state and confidence_note must be non-empty strings.")
+        return value
+
+    @model_validator(mode="after")
+    def validate_holding_zone_weights_and_recommendation_tactical_roles(
+        self,
+    ) -> GenerateBassStrategySuccessResponseBody:
+        _validate_holding_zone_weights(self.holding_zones)
+        _validate_recommendation_tactical_role_sequence(self.recommendations)
+        return self
+
 
 class GenerateBassStrategyFallbackResponseBody(BaseModel):
-    """LLM JSON could not be validated after retries."""
+    """Degraded response when LLM JSON validation exhausts retries."""
 
     fallback: Literal[True] = Field(default=True, description="Signals degraded output.")
     message: str = Field(description="User-facing guidance to adjust inputs and retry.")
     generated_at: datetime = Field(description="UTC timestamp when the fallback was returned.")
+
+
+# =============================================================================
+# Layer 5 — HTTP response (GET /agent/models)
+# =============================================================================
 
 
 class ListedAgentLlmModelItem(BaseModel):
@@ -195,7 +389,7 @@ class ListedAgentLlmModelItem(BaseModel):
 
 
 class ListAgentLlmModelsResponseBody(BaseModel):
-    """Available strategy LLM models for the current environment (keys configured in settings)."""
+    """Model catalog for the strategy form (only entries with configured API keys)."""
 
     models: list[ListedAgentLlmModelItem] = Field(
         description="Models whose API keys are set; empty when no provider is configured.",

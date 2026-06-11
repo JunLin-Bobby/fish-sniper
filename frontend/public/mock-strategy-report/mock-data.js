@@ -8,27 +8,43 @@ window.FISH_SNIPER_MOCK_REPORT = {
     water_depth_m: 2.5,
   },
   successPayload: {
+    todays_pattern: {
+      headline: 'Post-Spawn Largemouth',
+      subline: 'Shallow flats + windblown banks',
+    },
+    confidence_pct: 82,
+    confidence_note:
+      'Medium-high confidence: weather and your Mar 12 log align on slow bottom presentations.',
+    holding_zones: [
+      { label: 'Windblown rocky point', weight_pct: 70 },
+      { label: 'First drop outside spawning flat', weight_pct: 20 },
+      { label: 'Isolated wood in 2m depth', weight_pct: 10 },
+    ],
     fish_state:
-      'Fish are holding on brush piles in 6–10 ft after the cold front. Active window is late morning once surface temps climb; bottom contact beats reaction baits today.',
+      'Fish are holding on brush piles in 6–10 ft after the cold front. Active window is late morning once surface temps climb.',
     recommendations: [
       {
+        tactical_role: 'locator_bait',
         lure_type: 'Football Jig',
         lure_color: 'Green pumpkin',
+        reason: 'Covers bottom transitions to locate active fish on brush piles.',
         retrieve_technique: 'Slow drag with 2-second pauses on bottom transitions.',
       },
       {
+        tactical_role: 'follow_up_bait',
         lure_type: 'Mid-depth crankbait',
         lure_color: 'Shad pattern',
+        reason: 'Follow-up for fish that track but refuse the jig.',
         retrieve_technique: 'Moderate retrieve, deflect off stumps, pause on contact.',
       },
       {
+        tactical_role: 'finesse_cleanup',
         lure_type: 'Ned rig',
         lure_color: 'Mushroom head / green pumpkin TRD',
+        reason: 'Finesse cleanup along dock shade for pressured fish.',
         retrieve_technique: 'Dead-stick hops along dock shade lines.',
       },
     ],
-    confidence_note:
-      'Medium-high confidence: weather and your Mar 12 log align on slow bottom presentations.',
     weather_snapshot: {
       temperature_c: 18.5,
       pressure_hpa: 1015,
