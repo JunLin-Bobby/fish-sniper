@@ -62,7 +62,7 @@ def create_fish_sniper_app() -> FastAPI:
     ) -> JSONResponse:
         """Match product API errors as top-level `{ \"error\": ... }` when applicable."""
 
-        # 若 detail 已是產品格式 { "error": ... }，原樣回傳；否則包成 FastAPI 預設 { "detail": ... }。
+        # detail 已是 { "error": ... } 則原樣回傳；否則包成 FastAPI 預設 { "detail": ... }。
         if isinstance(exc.detail, dict) and "error" in exc.detail:
             return JSONResponse(status_code=exc.status_code, content=exc.detail)
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})

@@ -108,8 +108,9 @@ def decode_fish_sniper_rate_limit_key_from_access_token_jwt(
         # 與 OTP 登入限流相同：正規化後的 email 作為「同一帳號」的 key
         return normalize_email_address_for_otp_login(email_claim)
 
-    # [已停用] 早期 token  payload 只有 sub、沒有 email 時，曾用 legacy_sub:{uuid} 限流。
-    # 現行簽發一定包含 email；舊 token 超過 jwt_expire_days 後也應已失效，故保留程式供參考、不再執行。
+    # [已停用] 早期 token payload 只有 sub、沒有 email 時，曾用 legacy_sub:{uuid} 限流。
+    # 現行簽發一定包含 email；舊 token 超過 jwt_expire_days 後應已失效，
+    # 故保留程式供參考、不再執行。
     # 若 token 合法但缺 email，改回傳下方 sentinel（多人共用同一限流桶，不影響登入授權）。
     #
     # subject = decoded_payload.get("sub")
