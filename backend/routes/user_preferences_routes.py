@@ -1,12 +1,10 @@
 """User onboarding preferences routes."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Request, status
 
 from deps import FishSniperPersistenceDep, ReferenceTimeUtcCallableDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import fish_sniper_apply_api_rate_limit
+from rate_limiting import fish_sniper_api_limiter
 from schemas.user_preferences_schemas import (
     SaveUserPreferencesRequestBody,
     SaveUserPreferencesResponseBody,
@@ -33,7 +31,7 @@ router = APIRouter()
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_get_user_preferences_request(
     request: Request,
     fish_sniper_user_id: FishSniperUserIdDep,
@@ -73,7 +71,7 @@ def handle_get_user_preferences_request(
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_save_user_preferences_request(
     request: Request,
     request_body: SaveUserPreferencesRequestBody,

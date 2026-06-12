@@ -1,7 +1,5 @@
 """Bass lure strategy agent route (LangGraph + multi-provider LLM)."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
@@ -18,7 +16,7 @@ from llm.strategy_model_resolution import (
     StrategyLlmModelResolutionError,
     resolve_strategy_llm_model_id,
 )
-from rate_limiting import fish_sniper_apply_api_rate_limit
+from rate_limiting import fish_sniper_api_limiter
 from schemas.agent_schemas import (
     GenerateBassStrategyFallbackResponseBody,
     GenerateBassStrategyRequestBody,
@@ -44,7 +42,7 @@ router = APIRouter()
         status.HTTP_429_TOO_MANY_REQUESTS: {"description": "Per-email rate limit exceeded."},
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_list_agent_llm_models_request(
     request: Request,
     fish_sniper_user_id: FishSniperUserIdDep,
@@ -99,7 +97,7 @@ def handle_list_agent_llm_models_request(
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("30/hour")
+@fish_sniper_api_limiter.limit("30/hour")
 async def handle_generate_bass_lure_strategy_request(
     request: Request,
     request_body: GenerateBassStrategyRequestBody,

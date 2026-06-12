@@ -3,17 +3,22 @@
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class FishSniperBackendSettings(BaseSettings):
     """Runtime configuration for the FishSniper FastAPI backend."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+    # 不在此讀取 .env，改由 main.py 的 load_dotenv() 先注入 os.environ。
+    # BaseSettings 預設即從 os.environ 映射欄位（如 GEMINI_API_KEY → gemini_api_key）；
+    # extra 未設定時 pydantic-settings 也會忽略未定義的環境變數。
+    # 若改回 env_file=".env"，會與 load_dotenv() 重複載入，且 import settings 時機不同會更難追。
+    #
+    # model_config = SettingsConfigDict(
+    #     env_file=".env",
+    #     env_file_encoding="utf-8",
+    #     extra="ignore",
+    # )
 
     frontend_origin: str = Field(
         default="http://localhost:5173",

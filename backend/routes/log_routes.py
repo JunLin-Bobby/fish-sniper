@@ -1,7 +1,5 @@
 """Fishing logs CRUD routes (P3 + P4 Part 1 vector wiring)."""
 
-from __future__ import annotations
-
 import hashlib
 import logging
 from uuid import UUID
@@ -23,7 +21,7 @@ from embedding.port import FishSniperEmbeddingUnavailableError
 from error_envelopes import service_temporarily_unavailable_response
 from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import FishSniperFishingLogRow
-from rate_limiting import fish_sniper_apply_api_rate_limit
+from rate_limiting import fish_sniper_api_limiter
 from schemas.log_schemas import (
     CreateFishingLogResponseBody,
     CreateOrUpdateFishingLogRequestBody,
@@ -152,7 +150,7 @@ def _build_logs_database_unavailable_response() -> JSONResponse:
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_create_fishing_log_request(
     request: Request,
     request_body: CreateOrUpdateFishingLogRequestBody,
@@ -221,7 +219,7 @@ def handle_create_fishing_log_request(
         status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Database unavailable."},
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_list_fishing_logs_request(
     request: Request,
     fish_sniper_user_id: FishSniperUserIdDep,
@@ -260,7 +258,7 @@ def handle_list_fishing_logs_request(
         status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Database unavailable."},
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_get_fishing_log_request(
     request: Request,
     log_id: UUID,
@@ -310,7 +308,7 @@ def handle_get_fishing_log_request(
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_update_fishing_log_request(
     request: Request,
     log_id: UUID,
@@ -385,7 +383,7 @@ def handle_update_fishing_log_request(
         status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "Database unavailable."},
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_delete_fishing_log_request(
     request: Request,
     log_id: UUID,

@@ -1,7 +1,5 @@
 """Current weather route (OpenWeatherMap + TTL cache)."""
 
-from __future__ import annotations
-
 from datetime import UTC
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -13,7 +11,7 @@ from deps import (
     get_fish_sniper_weather_snapshot_cache_port,
 )
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import fish_sniper_apply_api_rate_limit
+from rate_limiting import fish_sniper_api_limiter
 from schemas.weather_schemas import CurrentWeatherResponseBody
 from security import FishSniperUserIdDep
 from weather.port import FishSniperOpenWeatherSnapshot
@@ -56,7 +54,7 @@ def _map_snapshot_to_response_body(
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("120/minute")
+@fish_sniper_api_limiter.limit("120/minute")
 def handle_get_current_weather_for_signed_in_user_request(
     request: Request,
     fish_sniper_user_id: FishSniperUserIdDep,

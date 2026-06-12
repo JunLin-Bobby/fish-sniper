@@ -1,12 +1,10 @@
 """Account lifecycle routes (delete signed-in user)."""
 
-from __future__ import annotations
-
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
 from deps import FishSniperPersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import fish_sniper_apply_api_rate_limit
+from rate_limiting import fish_sniper_api_limiter
 from schemas.user_account_schemas import DeleteFishSniperAccountRequestBody
 from security import FishSniperUserIdDep
 
@@ -31,7 +29,7 @@ router = APIRouter()
         },
     },
 )
-@fish_sniper_apply_api_rate_limit("3/hour")
+@fish_sniper_api_limiter.limit("3/hour")
 def handle_delete_fish_sniper_account_request(
     request: Request,
     request_body: DeleteFishSniperAccountRequestBody,
