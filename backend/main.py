@@ -93,7 +93,7 @@ def create_fish_sniper_app() -> FastAPI:
     # 7. 路由註冊（Routers）
     #    各 router 定義在 routes/ 下，main.py 只負責掛載前綴與 OpenAPI tag。
     #
-    #    /auth   → 登入、OAuth、OTP 等認證流程
+    #    /auth   → Google OAuth 登入；OTP 路由保留（待 Resend + 寄件網域開通）
     #    /users  → 使用者偏好設定、帳號管理（刪除等）
     #    /logs   → 釣魚紀錄 CRUD 與向量搜尋
     #    /weather→ 天氣查詢（供策略建議使用）

@@ -1,4 +1,8 @@
-"""Resend-backed transactional email sender."""
+"""Resend-backed transactional email sender.
+
+[暫時棄用 — Email OTP / Resend]
+  需 Resend + 已驗證網域；目前未開通。僅 send-otp 使用，待有 email 服務後可恢復。
+"""
 
 from __future__ import annotations
 

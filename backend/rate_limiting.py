@@ -124,8 +124,8 @@ fish_sniper_api_limiter = Limiter(
 starlette_config.Config._read_file = _original_starlette_config_read_file
 
 # ---------------------------------------------------------------------------
-# 公開：auth 請求體路由的手動限流（MovingWindow + HTTPException 429）
-# 在 route handler 內呼叫；rate_limit_enabled=false 時（測試）直接略過。
+# [暫時棄用 — Email OTP / Resend] send-otp / verify-otp（需 email 服務，目前未開通）
+# Google OAuth 兌換仍使用下方 enforce_google_oauth_exchange_*（使用中）。
 # ---------------------------------------------------------------------------
 
 

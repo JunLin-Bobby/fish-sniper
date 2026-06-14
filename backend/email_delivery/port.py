@@ -1,4 +1,8 @@
-"""Transactional email delivery port."""
+"""Transactional email delivery port.
+
+[暫時棄用 — Email OTP / Resend]
+  OTP 寄信介面；需 Resend 與寄件網域，目前未開通，待有 email 服務後可恢復。
+"""
 
 from typing import Protocol
 

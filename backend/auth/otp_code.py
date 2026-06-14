@@ -1,4 +1,8 @@
-"""OTP generation helpers."""
+"""OTP generation helpers.
+
+[暫時棄用 — Email OTP / Resend]
+  尚未開通 Resend 與寄件網域；僅供 send-otp 使用，待有 email 服務後可恢復。
+"""
 
 import secrets
 

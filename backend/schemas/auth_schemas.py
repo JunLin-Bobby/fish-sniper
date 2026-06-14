@@ -1,4 +1,8 @@
-"""Pydantic models for email OTP authentication."""
+"""Pydantic models for authentication.
+
+[暫時棄用 — Email OTP / Resend]
+  SendEmailOtp* / VerifyEmailOtp* 對應未開通的 OTP 登入；GoogleOAuth* 為目前登入流程。
+"""
 
 from pydantic import BaseModel, EmailStr, Field
 

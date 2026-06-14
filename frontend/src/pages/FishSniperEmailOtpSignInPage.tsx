@@ -1,3 +1,8 @@
+/**
+ * [暫時棄用 — Email OTP / Resend]
+ * 尚未有付費 email 服務與已驗證寄件網域，無法寄 OTP；登入改 Google OAuth。
+ * UI 保留，待開通 Resend 與網域後可恢復。顯示與否由 readFishSniperShouldShowEmailOtpLoginFromEnv 控制。
+ */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import type {

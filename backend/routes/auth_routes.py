@@ -1,4 +1,9 @@
-"""Email OTP authentication routes."""
+"""Authentication routes (Google OAuth + legacy email OTP).
+
+[暫時棄用 — Email OTP / Resend]
+  尚未購買 Resend 等付費 email 服務，也無已驗證寄件網域，無法實際寄送 OTP。
+  登入請走 POST /auth/google/exchange。程式保留，待開通 email 服務與網域後可恢復。
+"""
 
 from __future__ import annotations
 
@@ -44,9 +49,15 @@ from text_normalization import normalize_email_address_for_otp_login
 router = APIRouter()
 
 
+# ---------------------------------------------------------------------------
+# [暫時棄用 — Email OTP / Resend] 見模組 docstring；OpenAPI 標 deprecated=True。
+# ---------------------------------------------------------------------------
+
+
 @router.post(
     "/send-otp",
-    summary="Send a six-digit email OTP for sign-in",
+    deprecated=True,
+    summary="[Deprecated] Send a six-digit email OTP for sign-in",
     description=(
         "Generates a one-time passcode, stores it in `otp_codes` with a 10-minute expiry, "
         "and sends it via Resend. Enforces a 60-second per-email send cooldown."
@@ -126,7 +137,8 @@ def handle_send_email_otp_request(
 
 @router.post(
     "/verify-otp",
-    summary="Verify email OTP and issue a JWT access token",
+    deprecated=True,
+    summary="[Deprecated] Verify email OTP and issue a JWT access token",
     description=(
         "Validates the OTP challenge, deletes the consumed OTP row, ensures a `users` row exists, "
         "and returns a signed JWT used for `Authorization: Bearer` on protected endpoints."
@@ -195,6 +207,11 @@ def handle_verify_email_otp_request(
         ) from exc
 
     return VerifyEmailOtpResponseBody(access_token=access_token, is_new_user=is_new_user)
+
+
+# ---------------------------------------------------------------------------
+# 使用中：Google OAuth 兌換 JWT
+# ---------------------------------------------------------------------------
 
 
 @router.post(

@@ -47,12 +47,18 @@ class FishSniperBackendSettings(BaseSettings):
 
     resend_api_key: str | None = Field(
         default=None,
-        description="Resend API key for transactional email.",
+        description=(
+            "Resend API key for transactional email. "
+            "[暫時棄用] 需付費 Resend 帳號；目前未開通，OTP 登入未啟用。"
+        ),
     )
 
     resend_from_email: str = Field(
         default="FishSniper <no-reply@example.com>",
-        description="From header for OTP emails (must be a verified sender in Resend).",
+        description=(
+            "From header for OTP emails (must be a verified sender in Resend). "
+            "[暫時棄用] 需已驗證寄件網域；目前未設定。"
+        ),
     )
 
     jwt_secret: str = Field(
