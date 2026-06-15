@@ -20,7 +20,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
-from deps import get_fish_sniper_backend_settings
 from error_envelopes import invalid_payload_response
 from rate_limiting import fish_sniper_api_limiter, fish_sniper_handle_rate_limit_exceeded
 from routes.agent_routes import router as agent_router
@@ -29,6 +28,7 @@ from routes.log_routes import router as log_router
 from routes.user_preferences_routes import router as user_preferences_router
 from routes.users_account_routes import router as users_account_router
 from routes.weather_routes import router as weather_router
+from settings import get_fish_sniper_backend_settings
 
 
 def create_fish_sniper_app() -> FastAPI:

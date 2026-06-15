@@ -17,7 +17,7 @@ from embedding.port import FishSniperEmbeddingClient
 from llm.registry import ModelRegistry, load_registry
 from llm.router import TextGenerationRouter
 from persistence.port import FishSniperPersistencePort
-from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
+from settings import get_fish_sniper_backend_settings
 from weather.port import WeatherSnapshotCachePort
 from weather.weather_service import create_default_in_memory_weather_cache
 
@@ -194,13 +194,8 @@ def get_text_generation_router() -> TextGenerationRouter:
 
 # ---------------------------------------------------------------------------
 # 路由用型別別名（Annotated Depends — 與上方 provider 一一對應）
+# 設定注入見 settings.FishSniperSettingsDep
 # ---------------------------------------------------------------------------
-
-# 設定：環境變數 / .env（CORS、API keys、JWT 等）
-FishSniperSettingsDep = Annotated[
-    FishSniperBackendSettings,
-    Depends(get_fish_sniper_backend_settings),
-]
 
 # 持久化
 FishSniperPersistenceDep = Annotated[

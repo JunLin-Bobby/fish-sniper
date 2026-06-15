@@ -1,7 +1,9 @@
 """Application settings loaded from environment variables."""
 
 from functools import lru_cache
+from typing import Annotated
 
+from fastapi import Depends
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
@@ -199,3 +201,10 @@ def get_fish_sniper_backend_settings() -> FishSniperBackendSettings:
     """Return cached settings instance (one per process)."""
 
     return FishSniperBackendSettings()
+
+
+# FastAPI 路由注入：環境變數 / .env（CORS、API keys、JWT 等）
+FishSniperSettingsDep = Annotated[
+    FishSniperBackendSettings,
+    Depends(get_fish_sniper_backend_settings),
+]

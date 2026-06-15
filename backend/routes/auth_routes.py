@@ -23,7 +23,6 @@ from auth.google_oauth_service import (
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
 from deps import (
     FishSniperPersistenceDep,
-    FishSniperSettingsDep,
     GoogleJwksKeyResolverDep,
     GoogleOAuthTokenExchangeCallableDep,
     OtpCodeGeneratorDep,
@@ -44,6 +43,7 @@ from schemas.auth_schemas import (
     VerifyEmailOtpRequestBody,
     VerifyEmailOtpResponseBody,
 )
+from settings import FishSniperSettingsDep
 from text_normalization import normalize_email_address_for_otp_login
 
 router = APIRouter()

@@ -7,7 +7,6 @@ from agent.fish_sniper_strategy_lang_graph import invoke_strategy_graph
 from deps import (
     FishSniperEmbeddingClientDep,
     FishSniperPersistenceDep,
-    FishSniperSettingsDep,
     ReferenceTimeUtcCallableDep,
     TextGenerationRouterDep,
     get_fish_sniper_weather_snapshot_cache_port,
@@ -25,6 +24,7 @@ from schemas.agent_schemas import (
     ListedAgentLlmModelItem,
 )
 from security import FishSniperUserIdDep
+from settings import FishSniperSettingsDep
 
 router = APIRouter()
 

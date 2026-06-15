@@ -7,9 +7,9 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from deps import get_fish_sniper_backend_settings, get_fish_sniper_persistence_port
+from deps import get_fish_sniper_persistence_port
 from main import create_fish_sniper_app
-from settings import FishSniperBackendSettings
+from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
 from tests.conftest import InMemoryFishSniperPersistenceAdapter
 
 
