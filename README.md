@@ -13,8 +13,8 @@
 
 
 <!-- ### Strategy page -->
-![Strategy screen](images/strategy-demo.png)
-
+![Strategy screen](images/strategy-input.png)
+![Strategy report](images/strategy-demo.png)
 
 ---
 
