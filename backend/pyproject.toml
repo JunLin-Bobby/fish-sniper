@@ -2,6 +2,10 @@
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: pure unit tests without HTTP",
+    "api: in-process FastAPI API tests",
+]
 
 [tool.ruff]
 line-length = 100

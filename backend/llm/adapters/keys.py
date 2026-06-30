@@ -1,4 +1,4 @@
-"""Resolve LLM catalog API keys from ``FishSniperBackendSettings`` only.
+"""Resolve LLM catalog API keys from ``AppSettings`` only.
 
 Environment variables are loaded once by pydantic-settings (``.env`` + process
 env). Other modules must not call ``os.environ`` for secrets or config paths.
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from llm.models import ModelConfig
 from llm.port import GenerationMisconfiguredError
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 
 # Catalog ``api_key_env`` values supported today (must match settings fields).
 _API_KEY_ENV_TO_SETTINGS_ATTR: dict[str, str] = {
@@ -20,7 +20,7 @@ _API_KEY_ENV_TO_SETTINGS_ATTR: dict[str, str] = {
 def _api_key_from_settings(
     *,
     model_config: ModelConfig,
-    backend_settings: FishSniperBackendSettings,
+    backend_settings: AppSettings,
 ) -> str | None:
     settings_attr = _API_KEY_ENV_TO_SETTINGS_ATTR.get(model_config.api_key_env)
     if settings_attr is None:
@@ -34,7 +34,7 @@ def _api_key_from_settings(
 def has_api_key_for_model(
     *,
     model_config: ModelConfig,
-    backend_settings: FishSniperBackendSettings,
+    backend_settings: AppSettings,
 ) -> bool:
     """Return True when settings provides a non-empty key for ``model_config``."""
 
@@ -47,7 +47,7 @@ def has_api_key_for_model(
 def resolve_api_key(
     *,
     model_config: ModelConfig,
-    backend_settings: FishSniperBackendSettings,
+    backend_settings: AppSettings,
 ) -> str:
     """Return the API key for ``model_config`` or raise ``GenerationMisconfiguredError``."""
 

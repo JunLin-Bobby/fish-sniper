@@ -10,9 +10,9 @@ from uuid import UUID
 from fastapi import Depends, Header, HTTPException, status
 
 from auth.jwt_tokens import decode_fish_sniper_user_id_from_access_token_jwt
-from deps import FishSniperPersistenceDep
+from deps import PersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from settings import FishSniperSettingsDep
+from settings import SettingsDep
 
 # ---------------------------------------------------------------------------
 # 前置檢查：Authorization header 格式（避免無 Bearer 時仍去連 DB）
@@ -21,7 +21,7 @@ from settings import FishSniperSettingsDep
 
 def _ensure_bearer_authorization_header_or_skip_auth(
     authorization: Annotated[str | None, Header()] = None,
-    fish_sniper_backend_settings: FishSniperSettingsDep = ...,
+    fish_sniper_backend_settings: SettingsDep = ...,
 ) -> None:
     """Reject missing Bearer before any DB dependency runs (401 without Supabase in CI)."""
 
@@ -39,8 +39,8 @@ def _ensure_bearer_authorization_header_or_skip_auth(
 def get_current_fish_sniper_user_id_from_authorization_header(
     _: Annotated[None, Depends(_ensure_bearer_authorization_header_or_skip_auth)],
     authorization: Annotated[str | None, Header()] = None,  # 請求參數：Authorization header
-    fish_sniper_backend_settings: FishSniperSettingsDep = ...,
-    fish_sniper_persistence: FishSniperPersistenceDep = ...,
+    fish_sniper_backend_settings: SettingsDep = ...,
+    fish_sniper_persistence: PersistenceDep = ...,
 ) -> UUID:
     """Resolve the caller's user id from `Authorization: Bearer`, or SKIP_AUTH in dev."""
 

@@ -16,7 +16,7 @@ from persistence.port import (
     FishSniperUserPreferencesRow,
     FishSniperUserRow,
 )
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -126,83 +126,12 @@ def _unwrap_rpc_jsonb_response(response_data: Any) -> dict | None:
 
 
 class SupabaseFishSniperPersistenceAdapter:
-    """Implements `FishSniperPersistencePort` using Supabase PostgREST."""
+    """Implements `PersistencePort` using Supabase PostgREST."""
 
-    def __init__(self, fish_sniper_backend_settings: FishSniperBackendSettings) -> None:
+    def __init__(self, fish_sniper_backend_settings: AppSettings) -> None:
         supabase_url = fish_sniper_backend_settings.supabase_url or ""
         service_role_key = fish_sniper_backend_settings.supabase_service_role_key or ""
         self._client: Client = create_client(supabase_url, service_role_key)
-
-    def fetch_seconds_since_last_otp_send_for_email(
-        self,
-        *,
-        normalized_email_address: str,
-        reference_time_utc: datetime,
-    ) -> float | None:
-        try:
-            response = (
-                self._client.table("otp_codes")
-                .select("created_at")
-                .eq("email", normalized_email_address)
-                .order("created_at", desc=True)
-                .limit(1)
-                .execute()
-            )
-            if not response.data:
-                return None
-            created_at_utc = _parse_supabase_timestamptz_to_utc(response.data[0]["created_at"])
-            return (reference_time_utc - created_at_utc).total_seconds()
-
-        except Exception as exc:  # noqa: BLE001 — map provider errors to a single app error type
-            logger.exception("Supabase OTP cooldown lookup failed")
-            raise FishSniperPersistenceUnavailableError("otp cooldown lookup failed") from exc
-
-    def insert_pending_otp_challenge_for_email(
-        self,
-        *,
-        normalized_email_address: str,
-        otp_code_six_digits: str,
-        otp_expires_at_utc: datetime,
-        otp_created_at_utc: datetime,
-    ) -> None:
-        try:
-            self._client.table("otp_codes").insert(
-                {
-                    "email": normalized_email_address,
-                    "code": otp_code_six_digits,
-                    "expires_at": _format_timestamptz_for_supabase(otp_expires_at_utc),
-                    "created_at": _format_timestamptz_for_supabase(otp_created_at_utc),
-                }
-            ).execute()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Supabase OTP insert failed")
-            raise FishSniperPersistenceUnavailableError("otp insert failed") from exc
-
-    def delete_matching_unexpired_otp_or_noop(
-        self,
-        *,
-        normalized_email_address: str,
-        otp_code_six_digits: str,
-        reference_time_utc: datetime,
-    ) -> bool:
-        try:
-            select_response = (
-                self._client.table("otp_codes")
-                .select("id")
-                .eq("email", normalized_email_address)
-                .eq("code", otp_code_six_digits)
-                .gt("expires_at", _format_timestamptz_for_supabase(reference_time_utc))
-                .limit(1)
-                .execute()
-            )
-            if not select_response.data:
-                return False
-            otp_row_id = select_response.data[0]["id"]
-            self._client.table("otp_codes").delete().eq("id", otp_row_id).execute()
-            return True
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Supabase OTP consume/delete failed")
-            raise FishSniperPersistenceUnavailableError("otp consume failed") from exc
 
     def fetch_user_row_by_normalized_email(
         self,
@@ -288,17 +217,6 @@ class SupabaseFishSniperPersistenceAdapter:
         except Exception as exc:  # noqa: BLE001
             logger.exception("Supabase user delete failed")
             raise FishSniperPersistenceUnavailableError("user delete failed") from exc
-
-    def delete_otp_codes_for_normalized_email(
-        self,
-        *,
-        normalized_email_address: str,
-    ) -> None:
-        try:
-            self._client.table("otp_codes").delete().eq("email", normalized_email_address).execute()
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Supabase OTP cleanup failed for deleted account")
-            raise FishSniperPersistenceUnavailableError("otp cleanup failed") from exc
 
     def fetch_user_preferences_row_for_user_id(
         self,

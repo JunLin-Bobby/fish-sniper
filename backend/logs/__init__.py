@@ -1,0 +1,1 @@
+"""Fishing logs domain."""

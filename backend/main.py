@@ -20,15 +20,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
+from auth.router import router as auth_router
 from error_envelopes import invalid_payload_response
+from logs.router import router as log_router
 from rate_limiting import fish_sniper_api_limiter, fish_sniper_handle_rate_limit_exceeded
-from routes.agent_routes import router as agent_router
-from routes.auth_routes import router as auth_router
-from routes.log_routes import router as log_router
-from routes.user_preferences_routes import router as user_preferences_router
-from routes.users_account_routes import router as users_account_router
-from routes.weather_routes import router as weather_router
-from settings import get_fish_sniper_backend_settings
+from settings import get_settings
+from strategy.router import router as agent_router
+from users.account_router import router as users_account_router
+from users.preferences_router import router as user_preferences_router
+from weather.router import router as weather_router
 
 
 def create_fish_sniper_app() -> FastAPI:
@@ -38,7 +38,7 @@ def create_fish_sniper_app() -> FastAPI:
     # 3. 讀取後端設定 & 建立 App 實例
     #    settings 來自 deps（底層是 settings.py + 環境變數）。
     # -----------------------------------------------------------------------
-    fish_sniper_backend_settings = get_fish_sniper_backend_settings()
+    fish_sniper_backend_settings = get_settings()
     app = FastAPI(title="FishSniper API")
 
     # -----------------------------------------------------------------------
@@ -93,7 +93,7 @@ def create_fish_sniper_app() -> FastAPI:
     # 7. 路由註冊（Routers）
     #    各 router 定義在 routes/ 下，main.py 只負責掛載前綴與 OpenAPI tag。
     #
-    #    /auth   → Google OAuth 登入；OTP 路由保留（待 Resend + 寄件網域開通）
+    #    /auth   → Google OAuth 登入
     #    /users  → 使用者偏好設定、帳號管理（刪除等）
     #    /logs   → 釣魚紀錄 CRUD 與向量搜尋
     #    /weather→ 天氣查詢（供策略建議使用）

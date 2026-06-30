@@ -28,7 +28,7 @@ from embedding.port import (
     FishSniperEmbeddingTask,
     FishSniperEmbeddingUnavailableError,
 )
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class GeminiFishSniperEmbeddingClient(FishSniperEmbeddingClient):
     def __init__(
         self,
         *,
-        fish_sniper_backend_settings: FishSniperBackendSettings,
+        fish_sniper_backend_settings: AppSettings,
         genai_client_factory: Callable[..., Any] = _default_genai_client_factory,
     ) -> None:
         if not fish_sniper_backend_settings.gemini_api_key:

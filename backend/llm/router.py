@@ -8,7 +8,7 @@ from llm.adapters.factory import build_text_adapter
 from llm.models import LlmGenerationResult, ModelConfig
 from llm.port import LlmTextGenerationClient
 from llm.registry import ModelRegistry
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class TextGenerationRouter:
         model_id: str,
         system_prompt: str,
         user_prompt: str,
-        backend_settings: FishSniperBackendSettings,
+        backend_settings: AppSettings,
     ) -> LlmGenerationResult:
         """Generate text using the model catalog entry for ``model_id``."""
 
@@ -53,7 +53,7 @@ class TextGenerationRouter:
         self,
         *,
         model_config: ModelConfig,
-        backend_settings: FishSniperBackendSettings,
+        backend_settings: AppSettings,
     ) -> LlmTextGenerationClient:
         cached = self._adapter_cache_by_model_id.get(model_config.model_id)
         if cached is not None:

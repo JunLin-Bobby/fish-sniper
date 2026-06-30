@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 from weather.port import FishSniperOpenWeatherSnapshot
 from weather.region_normalization import normalize_region_display_name_for_open_weather_map_query
 from weather.weather_errors import FishSniperWeatherUnavailableError
@@ -85,7 +85,7 @@ def _parse_open_weather_map_current_payload_or_raise(
 def fetch_current_weather_snapshot_from_open_weather_map_or_raise_for_unavailable(
     *,
     region_display_name: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
     reference_time_utc: datetime,
 ) -> FishSniperOpenWeatherSnapshot:
     """Fetch OWM current weather; raise FishSniperWeatherUnavailableError on failure."""
@@ -125,7 +125,7 @@ def fetch_current_weather_snapshot_from_open_weather_map_or_raise_for_unavailabl
 async def afetch_current_weather_snapshot_from_open_weather_map_or_raise_for_unavailable(
     *,
     region_display_name: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
     reference_time_utc: datetime,
 ) -> FishSniperOpenWeatherSnapshot:
     """Async OWM current weather fetch via ``httpx.AsyncClient``."""

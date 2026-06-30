@@ -8,7 +8,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
-class FishSniperBackendSettings(BaseSettings):
+class AppSettings(BaseSettings):
     """Runtime configuration for the FishSniper FastAPI backend."""
 
     # 不在此讀取 .env，改由 main.py 的 load_dotenv() 先注入 os.environ。
@@ -45,22 +45,6 @@ class FishSniperBackendSettings(BaseSettings):
     supabase_service_role_key: str | None = Field(
         default=None,
         description="Supabase service role key (server-side only).",
-    )
-
-    resend_api_key: str | None = Field(
-        default=None,
-        description=(
-            "Resend API key for transactional email. "
-            "[暫時棄用] 需付費 Resend 帳號；目前未開通，OTP 登入未啟用。"
-        ),
-    )
-
-    resend_from_email: str = Field(
-        default="FishSniper <no-reply@example.com>",
-        description=(
-            "From header for OTP emails (must be a verified sender in Resend). "
-            "[暫時棄用] 需已驗證寄件網域；目前未設定。"
-        ),
     )
 
     jwt_secret: str = Field(
@@ -197,14 +181,14 @@ class FishSniperBackendSettings(BaseSettings):
 
 
 @lru_cache
-def get_fish_sniper_backend_settings() -> FishSniperBackendSettings:
+def get_settings() -> AppSettings:
     """Return cached settings instance (one per process)."""
 
-    return FishSniperBackendSettings()
+    return AppSettings()
 
 
 # FastAPI 路由注入：環境變數 / .env（CORS、API keys、JWT 等）
-FishSniperSettingsDep = Annotated[
-    FishSniperBackendSettings,
-    Depends(get_fish_sniper_backend_settings),
+SettingsDep = Annotated[
+    AppSettings,
+    Depends(get_settings),
 ]

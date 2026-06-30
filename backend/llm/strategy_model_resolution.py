@@ -7,7 +7,7 @@ from typing import Any
 
 from llm.adapters.keys import has_api_key_for_model
 from llm.registry import ModelRegistry
-from settings import FishSniperBackendSettings
+from settings import AppSettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,7 +29,7 @@ def resolve_strategy_llm_model_id(
     *,
     requested_llm_model_id: str | None,
     model_registry: ModelRegistry,
-    backend_settings: FishSniperBackendSettings,
+    backend_settings: AppSettings,
 ) -> StrategyLlmModelResolution | StrategyLlmModelResolutionError:
     """Resolve ``llm_model_id`` (default from catalog) and validate allowlist + configured keys."""
 

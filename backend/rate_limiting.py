@@ -5,7 +5,7 @@
 #
 # 兩套機制並存：
 #   1. slowapi（fish_sniper_api_limiter）— 掛在需 JWT 的路由上，以 email 為 key。
-#   2. limits MovingWindow — 用在 auth 請求體路由（OTP / Google OAuth），key 為 email 或 IP。
+#   2. limits MovingWindow — 用在 Google OAuth exchange，key 為 IP。
 #
 # 對外主要入口：
 #   - fish_sniper_api_limiter.limit(...)     → 路由 decorator（Bearer 保護的 API）
@@ -26,9 +26,9 @@ from slowapi.errors import RateLimitExceeded
 from starlette import config as starlette_config
 from starlette.responses import JSONResponse
 
+from auth.email import normalize_email
 from auth.jwt_tokens import decode_fish_sniper_rate_limit_key_from_access_token_jwt
-from settings import FishSniperBackendSettings, get_fish_sniper_backend_settings
-from text_normalization import normalize_email_address_for_otp_login
+from settings import AppSettings, get_settings
 
 # ---------------------------------------------------------------------------
 # 私有：Starlette .env 讀取 patch（僅供 slowapi 初始化期間使用）
@@ -60,10 +60,7 @@ starlette_config.Config._read_file = _read_env_file_with_utf8_encoding
 
 # ---------------------------------------------------------------------------
 # 模組級基礎設施（私有 storage / 預先 parse 的限流規則）
-# auth 路由（OTP 發送／驗證、Google OAuth）在使用者登入前執行，
-# 此時還沒有 JWT token，所以無法用 slowapi decorator 從 token 拿 email 當 key。
-# 改用 limits 套件的 MovingWindowRateLimiter 手動檢查：
-# 在每個 route handler 內呼叫 .hit()，超過限制就直接拋出 429。
+# Google OAuth exchange 在使用者登入前執行，此時還沒有 JWT token。
 # ---------------------------------------------------------------------------
 
 # 第一組：storage — 計數器存在哪裡
@@ -75,8 +72,6 @@ _auth_route_moving_window_rate_limiter = MovingWindowRateLimiter(_auth_route_rat
 # Moving Window = 滑動視窗，比固定視窗更精確
 # 例如 30/hour 不是「每整點重置」，而是「過去60分鐘內最多30次」
 
-_send_otp_per_email_rate_limit_item = parse("30/hour")
-_verify_otp_per_email_rate_limit_item = parse("60/minute")
 _google_oauth_exchange_per_ip_rate_limit_item = parse("30/minute")
 
 
@@ -86,9 +81,9 @@ _google_oauth_exchange_per_ip_rate_limit_item = parse("30/minute")
 # 從 JWT 取出 normalized email 作為 slowapi 限流 key；SKIP_AUTH 時用合成 email。
 def fish_sniper_jwt_email_slowapi_key_func(request: Request) -> str:
     #Skip Auth when testing
-    settings = get_fish_sniper_backend_settings()
+    settings = get_settings()
     if settings.skip_auth:
-        return normalize_email_address_for_otp_login(settings.skip_auth_rate_limit_email)
+        return normalize_email(settings.skip_auth_rate_limit_email)
 
     # 從 request header 取得 Authorization 欄位
     # 格式應為 "Bearer <JWT>"，若不存在或格式錯誤則回傳預設 key
@@ -124,51 +119,14 @@ fish_sniper_api_limiter = Limiter(
 starlette_config.Config._read_file = _original_starlette_config_read_file
 
 # ---------------------------------------------------------------------------
-# [暫時棄用 — Email OTP / Resend] send-otp / verify-otp（需 email 服務，目前未開通）
-# Google OAuth 兌換仍使用下方 enforce_google_oauth_exchange_*（使用中）。
+# Google OAuth 兌換 per-IP 限流
 # ---------------------------------------------------------------------------
-
-
-# 限制同一 email 發送 OTP 的頻率（30/小時），與 DB 60 秒冷卻互補。
-def enforce_send_otp_email_rate_limit_or_raise_429(
-    *,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
-    normalized_email_address: str,
-) -> None:
-    if not fish_sniper_backend_settings.rate_limit_enabled:
-        return
-    bucket_key = f"send_otp:{normalized_email_address}"
-    if not _auth_route_moving_window_rate_limiter.hit(
-        _send_otp_per_email_rate_limit_item, bucket_key
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"error": "Too many requests"},
-        )
-
-
-# 限制同一 email 驗證 OTP 的嘗試次數（60/分鐘），防暴力破解。
-def enforce_verify_otp_email_rate_limit_or_raise_429(
-    *,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
-    normalized_email_address: str,
-) -> None:
-    if not fish_sniper_backend_settings.rate_limit_enabled:
-        return
-    bucket_key = f"verify_otp:{normalized_email_address}"
-    if not _auth_route_moving_window_rate_limiter.hit(
-        _verify_otp_per_email_rate_limit_item, bucket_key
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"error": "Too many requests"},
-        )
 
 
 # 限制 Google OAuth code 兌換 endpoint 的 per-IP 請求（兌換前尚無 email）。
 def enforce_google_oauth_exchange_ip_rate_limit_or_raise_429(
     *,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
     client_ip_address: str,
 ) -> None:
     if not fish_sniper_backend_settings.rate_limit_enabled:

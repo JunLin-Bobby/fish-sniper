@@ -6,8 +6,7 @@
 #   sub — 代表資料庫裡的使用者 id，protected route 用它確認「你是誰」、查詢你的資料；
 #         刪除帳號後 token 可能尚未過期，仍會用 sub 查 DB 並拒絕已刪除的帳號。
 #
-#   email — 代表登入用的信箱；登入前（OTP）限流只能依 email 分桶，登入後 API 限流也
-#           用同一個 email，才能和登入階段的次數上限對齊。
+#   email — 代表登入用的信箱；API 限流用同一個 email 分桶。
 #
 # 授權與限流需求不同，因此拆成兩個 decode：一個驗證失敗就 401，一個只產生限流 key、
 # 失敗時回傳固定字串（仍算進限流，但不代替登入檢查）。
@@ -19,15 +18,15 @@ from uuid import UUID
 import jwt
 from fastapi import HTTPException, status
 
-from settings import FishSniperBackendSettings
-from text_normalization import normalize_email_address_for_otp_login
+from auth.email import normalize_email
+from settings import AppSettings
 
 
 def issue_access_token_jwt_for_fish_sniper_user_id(
     *,
     fish_sniper_user_id: UUID,
     normalized_email_address: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
 ) -> str:
     """Sign a JWT for the user id and normalized email (rate-limit key and auditing)."""
 
@@ -50,7 +49,7 @@ def issue_access_token_jwt_for_fish_sniper_user_id(
 def decode_fish_sniper_user_id_from_access_token_jwt(
     *,
     access_token_jwt: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
 ) -> UUID:
     """Validate JWT and return the embedded user id (authorization only — not for rate limits)."""
 
@@ -85,7 +84,7 @@ def decode_fish_sniper_user_id_from_access_token_jwt(
 def decode_fish_sniper_rate_limit_key_from_access_token_jwt(
     *,
     access_token_jwt: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
+    fish_sniper_backend_settings: AppSettings,
 ) -> str:
     """Decode JWT without raising HTTPException — used only for rate-limit keying."""
 
@@ -105,8 +104,8 @@ def decode_fish_sniper_rate_limit_key_from_access_token_jwt(
 
     email_claim = decoded_payload.get("email")
     if isinstance(email_claim, str) and email_claim.strip():
-        # 與 OTP 登入限流相同：正規化後的 email 作為「同一帳號」的 key
-        return normalize_email_address_for_otp_login(email_claim)
+        # 與登入限流相同：正規化後的 email 作為「同一帳號」的 key
+        return normalize_email(email_claim)
 
     # [已停用] 早期 token payload 只有 sub、沒有 email 時，曾用 legacy_sub:{uuid} 限流。
     # 現行簽發一定包含 email；舊 token 超過 jwt_expire_days 後應已失效，
