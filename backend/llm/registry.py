@@ -15,7 +15,7 @@ from llm.models import (
     RegistryConfigurationError,
     UnknownModelError,
 )
-from settings import FishSniperBackendSettings
+from shared_infras.settings import AppSettings
 
 # --- Module constants ---------------------------------------------------------
 
@@ -31,7 +31,7 @@ def load_registry(
     *,
     yaml_path: Path | None = None,
     config_path_override: str | None = None,
-    backend_settings: FishSniperBackendSettings | None = None,
+    backend_settings: AppSettings | None = None,
 ) -> ModelRegistry:
     """Load and validate the LLM model catalog from ``llm_models.yaml``.
 
@@ -99,7 +99,7 @@ class ModelRegistry:
     def list_available(
         self,
         *,
-        backend_settings: FishSniperBackendSettings,
+        backend_settings: AppSettings,
     ) -> list[ListedLlmModel]:
         """Return catalog entries whose API key is configured in settings."""
 
@@ -194,7 +194,7 @@ def _parse_models(
 def resolve_config_path(
     *,
     config_path_override: str | None = None,
-    backend_settings: FishSniperBackendSettings | None = None,
+    backend_settings: AppSettings | None = None,
 ) -> Path:
     """Return the yaml path from override, settings, or the package default."""
 

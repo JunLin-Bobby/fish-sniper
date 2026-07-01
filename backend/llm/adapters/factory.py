@@ -7,13 +7,13 @@ from llm.adapters.keys import resolve_api_key
 from llm.adapters.openai import OpenAITextAdapter
 from llm.models import ModelConfig
 from llm.port import GenerationMisconfiguredError, LlmTextGenerationClient
-from settings import FishSniperBackendSettings
+from shared_infras.settings import AppSettings
 
 
 def build_text_adapter(
     *,
     model_config: ModelConfig,
-    backend_settings: FishSniperBackendSettings,
+    backend_settings: AppSettings,
 ) -> LlmTextGenerationClient:
     """Return a provider adapter for ``model_config`` with API key resolved from settings/env."""
 

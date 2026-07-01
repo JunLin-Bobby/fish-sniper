@@ -1,0 +1,832 @@
+"""LangGraph for P2/P4 bass strategy (Steps 1–5; HTTP route validates request before invoke)."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from contextlib import nullcontext
+from datetime import UTC, datetime
+from typing import Any, Literal
+from uuid import UUID
+
+from langgraph.graph import END, StateGraph
+from pydantic import ValidationError
+from typing_extensions import TypedDict
+
+from embedding.fish_sniper_log_query_embedding_text import compose_fishing_log_query_embedding_text
+from embedding.port import (
+    FishSniperEmbeddingClient,
+    FishSniperEmbeddingUnavailableError,
+)
+from llm.models import LlmGenerationResult
+from llm.port import GenerationMisconfiguredError, GenerationUnavailableError
+from llm.router import TextGenerationRouter
+from persistence.errors import FishSniperPersistenceUnavailableError
+from persistence.port import PersistencePort
+from shared_infras.settings import AppSettings
+from strategy.json_payload_extraction import extract_first_json_object_dict_from_llm_text
+from strategy.langfuse_observability import (
+    build_langfuse_client_or_none,
+    flush_langfuse_client_best_effort,
+)
+from strategy.prompt_assembler import (
+    build_general_system_prompt,
+    build_personalized_system_prompt,
+    build_user_prompt,
+)
+from strategy.schemas import (
+    BassStrategyStructuredLlmOutputBody,
+    GenerateBassStrategyFallbackResponseBody,
+    GenerateBassStrategyRequestBody,
+    GenerateBassStrategySuccessResponseBody,
+    ManualWeatherPayload,
+    ReferencedLogPayload,
+    WeatherSnapshotPayload,
+)
+from weather.port import WeatherSnapshotCachePort
+from weather.weather_errors import FishSniperWeatherUnavailableError
+from weather.weather_service import afetch_or_refresh_cached_current_weather_snapshot_for_region
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Graph state schema — LangGraph 節點間傳遞的 state 型別與欄位定義
+# =============================================================================
+
+StrategyGraphState = dict[str, Any]
+
+
+class StrategyGraphStateSchema(TypedDict, total=False):
+    """Per-key channels for LangGraph; avoids ``StateGraph(dict)`` __root__ replacement bug.
+
+    LangGraph treats plain ``dict`` as a single ``__root__`` ``LastValue`` channel, so each
+    node update **replaced** the entire state and dropped keys like ``parsed_request_body``.
+    Declared keys get independent LastValue channels and merge as intended.
+    """
+
+    fish_sniper_user_id: UUID
+    parsed_request_body: GenerateBassStrategyRequestBody
+    fish_sniper_backend_settings: AppSettings
+    persistence_port: PersistencePort
+    weather_snapshot_cache_port: WeatherSnapshotCachePort
+    reference_time_utc: datetime
+    langfuse_client: Any
+    structured_json_retry_count: int
+    terminal_http_status: int
+    terminal_error_envelope: dict[str, Any]
+    profile_region_display_name: str
+    temperature_celsius: float
+    pressure_hectopascals: int
+    wind_speed_meters_per_second: float
+    condition_code: str
+    retrieved_log_count: int
+    retrieved_logs: list[Any]
+    has_personal_log: bool
+    selected_reference_log: Any
+    embedding_client: Any
+    text_generation_router: TextGenerationRouter
+    llm_model_id: str
+    structured_strategy_system_prompt: str
+    structured_strategy_user_prompt: str
+    raw_structured_strategy_llm_output: str
+    structured_json_valid: bool
+    strategy_fallback: bool
+    structured_strategy_parsed_dict: dict[str, Any]
+    success_response_body: dict[str, Any]
+    fallback_response_body: dict[str, Any]
+
+
+# =============================================================================
+# Shared helpers — 終止狀態判斷、LLM model 解析、文字生成 transport（可 mock）
+# =============================================================================
+
+def _terminal_http_status(state: StrategyGraphState) -> int | None:
+    return state.get("terminal_http_status")
+
+
+def _resolve_llm_model_id(
+    *,
+    state: StrategyGraphState,
+    text_generation_router: TextGenerationRouter,
+) -> str:
+    """Use explicit ``llm_model_id`` from state when set; otherwise catalog default."""
+
+    model_id = state.get("llm_model_id")
+    if isinstance(model_id, str) and model_id.strip():
+        return model_id.strip()
+    return text_generation_router.model_registry.default_model_id()
+
+
+async def _generate_structured_json(
+    *,
+    text_generation_router: TextGenerationRouter,
+    fish_sniper_backend_settings: AppSettings,
+    llm_model_id: str,
+    system_prompt: str,
+    user_prompt: str,
+) -> LlmGenerationResult:
+    """Step 4 transport: one allowlisted model completion (patchable in tests)."""
+
+    return await text_generation_router.generate_text(
+        model_id=llm_model_id,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        backend_settings=fish_sniper_backend_settings,
+    )
+
+
+# =============================================================================
+# Graph node — Step 1：載入釣區 region 與天氣快照（或手動天氣）
+# =============================================================================
+
+async def node_load_region_and_weather(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Step 1 analogue: load `region` and weather (or manual weather) into graph state."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
+    settings: AppSettings = state["fish_sniper_backend_settings"]
+    weather_cache: WeatherSnapshotCachePort = state["weather_snapshot_cache_port"]
+    reference_time_utc: datetime = state["reference_time_utc"]
+
+    langfuse_client = state.get("langfuse_client")
+    span_cm = (
+        langfuse_client.start_as_current_span(
+            name="fetch_weather_for_strategy", metadata={"step": "1"}
+        )
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    with span_cm:
+        region = request_body.region.strip()
+        manual_weather: ManualWeatherPayload | None = request_body.manual_weather
+        if manual_weather is not None:
+            return {
+                "profile_region_display_name": region,
+                "temperature_celsius": manual_weather.temperature_c,
+                "pressure_hectopascals": manual_weather.pressure_hpa,
+                "wind_speed_meters_per_second": manual_weather.wind_speed_ms,
+                "condition_code": manual_weather.condition_code,
+            }
+        try:
+            snapshot = await afetch_or_refresh_cached_current_weather_snapshot_for_region(
+                profile_region_display_name=region,
+                fish_sniper_backend_settings=settings,
+                weather_snapshot_cache_port=weather_cache,
+                reference_time_utc=reference_time_utc,
+            )
+            return {
+                "profile_region_display_name": region,
+                "temperature_celsius": snapshot.temperature_celsius,
+                "pressure_hectopascals": snapshot.pressure_hectopascals,
+                "wind_speed_meters_per_second": snapshot.wind_speed_meters_per_second,
+                "condition_code": snapshot.condition_code,
+            }
+        except FishSniperWeatherUnavailableError:
+            return {
+                "terminal_http_status": 503,
+                "terminal_error_envelope": {"error": "Weather service unavailable"},
+            }
+
+
+# =============================================================================
+# RAG helpers — embedding / persistence 失敗時的降級 state
+# =============================================================================
+
+def _degraded_rag_state() -> StrategyGraphState:
+    return {
+        "retrieved_log_count": 0,
+        "retrieved_logs": [],
+        "selected_reference_log": None,
+        "has_personal_log": False,
+    }
+
+
+# =============================================================================
+# Graph node — Step 2：個人釣魚日誌 RAG（embed query → pgvector top-K）
+# =============================================================================
+
+async def node_search_personal_reference_log(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Step 2: embed query text, pgvector search, degrade to general branch on any soft failure."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    embedding_client: FishSniperEmbeddingClient = state["embedding_client"]
+    persistence_port: PersistencePort = state["persistence_port"]
+    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
+    user_id: UUID = state["fish_sniper_user_id"]
+
+    query_text = compose_fishing_log_query_embedding_text(
+        fishing_location=request_body.fishing_location.strip(),
+        fishing_scene=request_body.fishing_scene.strip(),
+        target_species=request_body.target_species,
+        water_depth_m=request_body.water_depth_m,
+        temperature_c=state["temperature_celsius"],
+        wind_speed_ms=state["wind_speed_meters_per_second"],
+        pressure_hpa=state["pressure_hectopascals"],
+        condition_code=state["condition_code"],
+    )
+
+    # print(
+    #     "\n----- [Strategy Step 2] input summary -----\n"
+    #     f"user_id={user_id}\n"
+    #     f"region={request_body.region!r}\n"
+    #     f"fishing_location={request_body.fishing_location!r}\n"
+    #     f"fishing_scene={request_body.fishing_scene!r}\n"
+    #     f"target_species={request_body.target_species!r}\n"
+    #     f"water_depth_m={request_body.water_depth_m}\n"
+    #     f"weather: temp_c={state['temperature_celsius']}, wind_ms="
+    #     f"{state['wind_speed_meters_per_second']}, "
+    #     f"pressure_hpa={state['pressure_hectopascals']}, "
+    #     f"condition={state['condition_code']!r}\n"
+    #     "----- end input summary -----",
+    #     flush=True,
+    # )
+    # print(
+    #     "\n----- [Strategy Step 2] composed query embedding text "
+    #     f"(length={len(query_text)}) -----\n"
+    #     f"{query_text}\n"
+    #     "----- end composed query embedding text -----",
+    #     flush=True,
+    # )
+
+    langfuse_client = state.get("langfuse_client")
+    span_cm = (
+        langfuse_client.start_as_current_span(
+            name="search_personal_reference_log",
+            metadata={"step": "2", "top_k": 3},
+        )
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    with span_cm:
+        try:
+            query_vector = await asyncio.to_thread(
+                embedding_client.embed,
+                text=query_text,
+                task="query",
+            )
+        except FishSniperEmbeddingUnavailableError:
+            logger.warning("gemini_embedding_unavailable_in_rag_query_degrading_to_general")
+            print(
+                "\n----- [Strategy Step 2] RAG degraded: embedding transient failure -----\n",
+                flush=True,
+            )
+            return _degraded_rag_state()
+
+        try:
+            hits = await asyncio.to_thread(
+                persistence_port.find_similar_fishing_log_for_user_id,
+                fish_sniper_user_id=user_id,
+                target_species=request_body.target_species,
+                query_embedding=query_vector,
+                top_k=3,
+            )
+        except FishSniperPersistenceUnavailableError:
+            logger.warning("rag_persistence_unavailable_degrading_to_general")
+            print(
+                "\n----- [Strategy Step 2] RAG degraded: persistence failure -----\n",
+                flush=True,
+            )
+            return _degraded_rag_state()
+
+        print(
+            f"\n----- [Strategy Step 2] top-K search hits (count={len(hits)}) -----",
+            flush=True,
+        )
+        for index, hit in enumerate(hits):
+            row = hit.row
+            print(
+                f"[{index}] distance={hit.cosine_distance:.6f}  log_id={row.log_id}  "
+                f"log_date={row.log_date.isoformat()}  location={row.fishing_location!r}  "
+                f"lure={row.lure_type}/{row.lure_color}",
+                flush=True,
+            )
+        if not hits:
+            print("(no qualifying logs)\n----- end top-K search hits -----", flush=True)
+        else:
+            print("----- end top-K search hits -----", flush=True)
+
+        if not hits:
+            return _degraded_rag_state()
+
+        selected = hits[0]
+
+        return {
+            "retrieved_log_count": len(hits),
+            "retrieved_logs": [hit.row for hit in hits],
+            "selected_reference_log": selected.row,
+            "has_personal_log": True,
+        }
+
+
+# =============================================================================
+# Graph node — Step 3：依 RAG 分支組裝 system / user prompt
+# =============================================================================
+
+async def node_assemble_prompts(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Step 3: personalized or general system prompt plus shared user JSON instructions."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    langfuse_client = state.get("langfuse_client")
+    request_body: GenerateBassStrategyRequestBody = state["parsed_request_body"]
+    has_personal_log = bool(state.get("has_personal_log"))
+
+    span_cm = (
+        langfuse_client.start_as_current_span(
+            name="build_system_prompt",
+            metadata={
+                "step": "3",
+                "branch": "personalized" if has_personal_log else "general",
+                "prompt_version": state["fish_sniper_backend_settings"].strategy_prompt_version,
+            },
+        )
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    with span_cm:
+        settings: AppSettings = state["fish_sniper_backend_settings"]
+        prompt_version = settings.strategy_prompt_version
+
+        if has_personal_log:
+            reference_log = state["selected_reference_log"]
+            system_prompt = (
+                build_personalized_system_prompt(
+                    target_species=request_body.target_species,
+                    reference_log=reference_log,
+                    prompt_version=prompt_version,
+                )
+            )
+        else:
+            system_prompt = build_general_system_prompt(
+                target_species=request_body.target_species,
+                prompt_version=prompt_version,
+            )
+
+        user_prompt = build_user_prompt(
+            region=state["profile_region_display_name"],
+            fishing_location=request_body.fishing_location.strip(),
+            fishing_scene=request_body.fishing_scene.strip(),
+            water_depth_m=request_body.water_depth_m,
+            temperature_c=state["temperature_celsius"],
+            pressure_hpa=state["pressure_hectopascals"],
+            wind_speed_ms=state["wind_speed_meters_per_second"],
+            condition_code=state["condition_code"],
+            target_species=request_body.target_species,
+            personalized=has_personal_log,
+            prompt_version=prompt_version,
+        )
+
+        print(
+            "\n----- [Strategy Step 3] final system prompt "
+            f"(branch={'personalized' if has_personal_log else 'general'}, "
+            f"prompt_version={prompt_version}, "
+            f"chars={len(system_prompt)}) -----\n"
+            f"{system_prompt}\n"
+            "----- end final system prompt -----",
+            flush=True,
+        )
+
+        return {
+            "structured_strategy_system_prompt": system_prompt,
+            "structured_strategy_user_prompt": user_prompt,
+        }
+
+
+# =============================================================================
+# Graph node — Step 4：透過 TextGenerationRouter 呼叫 LLM 產生結構化 JSON
+# =============================================================================
+
+async def node_generate_structured_json_response(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Step 4: structured strategy JSON via ``TextGenerationRouter``."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    settings: AppSettings = state["fish_sniper_backend_settings"]
+    text_generation_router: TextGenerationRouter = state["text_generation_router"]
+    llm_model_id = _resolve_llm_model_id(
+        state=state,
+        text_generation_router=text_generation_router,
+    )
+    langfuse_client = state.get("langfuse_client")
+    span_cm = (
+        langfuse_client.start_as_current_span(
+            name="generate_lure_strategy",
+            metadata={"step": "4", "llm_model_id": llm_model_id},
+        )
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    with span_cm:
+        system_prompt = state["structured_strategy_system_prompt"]
+        user_prompt = state["structured_strategy_user_prompt"]
+        try:
+            if langfuse_client is not None:
+                model_config = text_generation_router.model_registry.get_config(llm_model_id)
+                with langfuse_client.start_as_current_generation(
+                    name="llm_structured_strategy",
+                    model=model_config.provider_model,
+                    model_parameters={"temperature": model_config.temperature},
+                    input={
+                        "llm_model_id": llm_model_id,
+                        "provider": model_config.provider,
+                        "system_instruction_chars": len(system_prompt),
+                        "user_prompt_chars": len(user_prompt),
+                        "system_instruction": system_prompt,
+                        "user_prompt": user_prompt,
+                    },
+                ) as structured_generation:
+                    generation_result = await _generate_structured_json(
+                        text_generation_router=text_generation_router,
+                        fish_sniper_backend_settings=settings,
+                        llm_model_id=llm_model_id,
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                    )
+                    structured_generation.update(output=generation_result.raw_text)
+            else:
+                generation_result = await _generate_structured_json(
+                    text_generation_router=text_generation_router,
+                    fish_sniper_backend_settings=settings,
+                    llm_model_id=llm_model_id,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+        except (GenerationUnavailableError, GenerationMisconfiguredError):
+            logger.exception(
+                "Structured strategy text generation failed model_id=%s",
+                llm_model_id,
+            )
+            return {
+                "terminal_http_status": 503,
+                "terminal_error_envelope": {"error": "Strategy model is temporarily unavailable"},
+                "raw_structured_strategy_llm_output": "",
+            }
+
+        return {"raw_structured_strategy_llm_output": generation_result.raw_text}
+
+
+# =============================================================================
+# Graph node — Step 5：解析 LLM 輸出 JSON 並以 Pydantic 驗證（含重試計數）
+# =============================================================================
+
+async def node_validate_structured_json_response(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Step 5: JSON validation with bounded retries (retry_count)."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    langfuse_client = state.get("langfuse_client")
+    span_cm = (
+        langfuse_client.start_as_current_span(name="validate_llm_output", metadata={"step": "5"})
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    with span_cm:
+        raw_text = state.get("raw_structured_strategy_llm_output") or ""
+        retry_count = int(state.get("structured_json_retry_count") or 0)
+        try:
+            parsed = extract_first_json_object_dict_from_llm_text(raw_llm_text=raw_text)
+            validated = BassStrategyStructuredLlmOutputBody.model_validate(parsed)
+            return {
+                "structured_json_retry_count": retry_count,
+                "structured_strategy_parsed_dict": validated.model_dump(mode="python"),
+                "structured_json_valid": True,
+                "strategy_fallback": False,
+            }
+        except (ValueError, ValidationError) as exc:
+            logger.info("Structured JSON validation failed (attempt=%s): %s", retry_count + 1, exc)
+            next_retry = retry_count + 1
+            if next_retry >= 2:
+                return {
+                    "structured_json_retry_count": next_retry,
+                    "structured_json_valid": False,
+                    "strategy_fallback": True,
+                }
+            return {
+                "structured_json_retry_count": next_retry,
+                "structured_json_valid": False,
+                "strategy_fallback": False,
+            }
+
+
+# =============================================================================
+# Conditional routing — 依 state 決定下一步節點（重試 / 成功 / fallback / 終止）
+# =============================================================================
+
+def route_after_json_validation(
+    state: StrategyGraphState,
+) -> Literal[
+    "retry_structured_generation",
+    "finalize_success",
+    "fallback_done",
+    "terminal_stop",
+]:
+    if _terminal_http_status(state) is not None:
+        return "terminal_stop"
+    if state.get("strategy_fallback") is True:
+        return "fallback_done"
+    if state.get("structured_json_valid") is True:
+        return "finalize_success"
+    return "retry_structured_generation"
+
+
+def route_after_load_region_and_weather(
+    state: StrategyGraphState,
+) -> Literal["continue", "terminal_stop"]:
+    if _terminal_http_status(state) is not None:
+        return "terminal_stop"
+    return "continue"
+
+
+# =============================================================================
+# Graph nodes — 終止占位、成功回應組裝、fallback 回應組裝
+# =============================================================================
+
+async def node_no_op_pipeline_terminal_stop(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """LangGraph requires a node for early exits; terminal metadata already lives on state."""
+
+    _ = state
+    return {}
+
+
+async def node_finalize_success(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Build Pydantic success response."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    llm_payload = BassStrategyStructuredLlmOutputBody.model_validate(
+        state["structured_strategy_parsed_dict"],
+    )
+    generated_at_utc = datetime.now(tz=UTC)
+    has_personal = bool(state.get("has_personal_log"))
+    selected = state.get("selected_reference_log")
+    referenced_log_payload: ReferencedLogPayload | None = None
+    rag_logs_used = 0
+    if has_personal and selected is not None:
+        referenced_log_payload = ReferencedLogPayload(
+            log_id=selected.log_id,
+            log_date=selected.log_date,
+            fishing_location=selected.fishing_location,
+            lure_type=selected.lure_type,
+            lure_color=selected.lure_color,
+            retrieve_speed=selected.retrieve_speed,
+            caught_count=selected.caught_count,
+        )
+        rag_logs_used = 1
+
+    success = GenerateBassStrategySuccessResponseBody(
+        todays_pattern=llm_payload.todays_pattern,
+        confidence_pct=llm_payload.confidence_pct,
+        confidence_note=llm_payload.confidence_note,
+        holding_zones=llm_payload.holding_zones,
+        fish_state=llm_payload.fish_state,
+        recommendations=llm_payload.recommendations,
+        weather_snapshot=WeatherSnapshotPayload(
+            temperature_c=state["temperature_celsius"],
+            pressure_hpa=state["pressure_hectopascals"],
+            wind_speed_ms=state["wind_speed_meters_per_second"],
+            condition_code=state["condition_code"],
+        ),
+        rag_logs_used=rag_logs_used,
+        referenced_log=referenced_log_payload,
+        generated_at=generated_at_utc,
+        fallback=False,
+    )
+    return {"success_response_body": success.model_dump(mode="json")}
+
+
+async def node_finalize_fallback(
+    state: StrategyGraphState,
+) -> StrategyGraphState:
+    """Build fallback envelope after JSON validation exhausts retries."""
+
+    if _terminal_http_status(state) is not None:
+        return {}
+
+    if state.get("strategy_fallback") is not True:
+        return {}
+
+    generated_at_utc = datetime.now(tz=UTC)
+    fallback = GenerateBassStrategyFallbackResponseBody(
+        fallback=True,
+        message="Could not generate a confident strategy. Try again or adjust your input.",
+        generated_at=generated_at_utc,
+    )
+    return {"fallback_response_body": fallback.model_dump(mode="json")}
+
+
+# =============================================================================
+# Graph wiring — 註冊節點、條件邊、編譯 LangGraph
+# =============================================================================
+
+def build_strategy_state_graph() -> StateGraph:
+    """Wire LangGraph nodes and conditional retry routing for Steps 4–5 (single LLM JSON call)."""
+
+    graph_builder = StateGraph(StrategyGraphStateSchema)
+    graph_builder.add_node(
+        "load_region_and_weather", node_load_region_and_weather
+    )
+    graph_builder.add_node("rag_search_personal_log", node_search_personal_reference_log)
+    graph_builder.add_node("assemble_prompts", node_assemble_prompts)
+    graph_builder.add_node(
+        "structured_generation",
+        node_generate_structured_json_response,
+    )
+    graph_builder.add_node(
+        "validate_structured_json", node_validate_structured_json_response
+    )
+    graph_builder.add_node("finalize_success", node_finalize_success)
+    graph_builder.add_node("finalize_fallback", node_finalize_fallback)
+    graph_builder.add_node("pipeline_terminal_stop", node_no_op_pipeline_terminal_stop)
+
+    graph_builder.set_entry_point("load_region_and_weather")
+    graph_builder.add_conditional_edges(
+        "load_region_and_weather",
+        route_after_load_region_and_weather,
+        {
+            "terminal_stop": "pipeline_terminal_stop",
+            "continue": "rag_search_personal_log",
+        },
+    )
+    graph_builder.add_edge("rag_search_personal_log", "assemble_prompts")
+    graph_builder.add_edge("assemble_prompts", "structured_generation")
+    graph_builder.add_edge("structured_generation", "validate_structured_json")
+    graph_builder.add_conditional_edges(
+        "validate_structured_json",
+        route_after_json_validation,
+        {
+            "retry_structured_generation": "structured_generation",
+            "finalize_success": "finalize_success",
+            "fallback_done": "finalize_fallback",
+            "terminal_stop": "pipeline_terminal_stop",
+        },
+    )
+    graph_builder.add_edge("finalize_success", END)
+    graph_builder.add_edge("finalize_fallback", END)
+    graph_builder.add_edge("pipeline_terminal_stop", END)
+    return graph_builder
+
+
+_compiled_strategy_graph = build_strategy_state_graph().compile()
+
+
+# =============================================================================
+# Observability — Langfuse trace 輸出摘要（避免 payload 過大）
+# =============================================================================
+
+def _langfuse_trace_strategy_output_summary(
+    *,
+    final_state: StrategyGraphState,
+) -> dict[str, Any]:
+    """Compact trace-level output for Langfuse UI (avoid huge payloads)."""
+
+    terminal_http_status_raw = final_state.get("terminal_http_status")
+    if isinstance(terminal_http_status_raw, int):
+        envelope = final_state.get("terminal_error_envelope")
+        detail: Any = envelope if isinstance(envelope, dict) else {"error": "Request failed"}
+        return {
+            "outcome": "terminal_error",
+            "http_status": terminal_http_status_raw,
+            "detail": detail,
+        }
+
+    success_raw = final_state.get("success_response_body")
+    if isinstance(success_raw, dict):
+        body = success_raw
+        recs = body.get("recommendations")
+        rec_count = len(recs) if isinstance(recs, list) else 0
+        fish_state = body.get("fish_state")
+        holding_zones_raw = body.get("holding_zones")
+        holding_zones_summary: list[dict[str, object]] | None = None
+        if isinstance(holding_zones_raw, list):
+            holding_zones_summary = []
+            for zone in holding_zones_raw[:3]:
+                if isinstance(zone, dict):
+                    holding_zones_summary.append(
+                        {
+                            "label": zone.get("label"),
+                            "weight_pct": zone.get("weight_pct"),
+                        },
+                    )
+        todays_pattern_raw = body.get("todays_pattern")
+        todays_pattern_headline: str | None = None
+        if isinstance(todays_pattern_raw, dict):
+            headline = todays_pattern_raw.get("headline")
+            if isinstance(headline, str):
+                todays_pattern_headline = headline
+        return {
+            "outcome": "success",
+            "fallback": False,
+            "recommendation_count": rec_count,
+            "confidence_pct": body.get("confidence_pct"),
+            "todays_pattern_headline": todays_pattern_headline,
+            "holding_zones": holding_zones_summary,
+            "fish_state_chars": len(str(fish_state)) if fish_state is not None else 0,
+            "rag_logs_used": body.get("rag_logs_used"),
+            "generated_at": body.get("generated_at"),
+        }
+
+    fallback_raw = final_state.get("fallback_response_body")
+    if isinstance(fallback_raw, dict):
+        return {
+            "outcome": "fallback",
+            "fallback": True,
+            "message": fallback_raw.get("message"),
+            "generated_at": fallback_raw.get("generated_at"),
+        }
+
+    return {"outcome": "unknown"}
+
+
+# =============================================================================
+# Public entry point — 建立初始 state、執行圖、回傳最終 state
+# =============================================================================
+
+async def invoke_strategy_graph(
+    *,
+    fish_sniper_user_id: UUID,
+    parsed_request_body: GenerateBassStrategyRequestBody,
+    fish_sniper_backend_settings: AppSettings,
+    persistence_port: PersistencePort,
+    weather_snapshot_cache_port: WeatherSnapshotCachePort,
+    reference_time_utc: datetime,
+    embedding_client: FishSniperEmbeddingClient,
+    text_generation_router: TextGenerationRouter,
+    llm_model_id: str | None = None,
+) -> StrategyGraphState:
+    """Return the graph final state (terminal errors or success/fallback JSON bodies)."""
+
+    langfuse_client = build_langfuse_client_or_none(
+        fish_sniper_backend_settings=fish_sniper_backend_settings,
+    )
+    resolved_llm_model_id = (
+        llm_model_id.strip()
+        if isinstance(llm_model_id, str) and llm_model_id.strip()
+        else text_generation_router.model_registry.default_model_id()
+    )
+    initial_state: StrategyGraphState = {
+        "fish_sniper_user_id": fish_sniper_user_id,
+        "parsed_request_body": parsed_request_body,
+        "fish_sniper_backend_settings": fish_sniper_backend_settings,
+        "persistence_port": persistence_port,
+        "weather_snapshot_cache_port": weather_snapshot_cache_port,
+        "reference_time_utc": reference_time_utc,
+        "langfuse_client": langfuse_client,
+        "structured_json_retry_count": 0,
+        "embedding_client": embedding_client,
+        "text_generation_router": text_generation_router,
+        "llm_model_id": resolved_llm_model_id,
+    }
+    root_cm = (
+        langfuse_client.start_as_current_span(
+            name="fish_sniper_strategy_trace_root",
+            input=parsed_request_body.model_dump(mode="json"),
+            metadata={
+                "user_id": str(fish_sniper_user_id),
+                "pipeline": "p2_bass_strategy_single_llm_json",
+            },
+        )
+        if langfuse_client is not None
+        else nullcontext()
+    )
+    try:
+        with root_cm:
+            final_state = await _compiled_strategy_graph.ainvoke(initial_state)
+            if langfuse_client is not None:
+                langfuse_client.update_current_trace(
+                    name="fish_sniper_strategy",
+                    user_id=str(fish_sniper_user_id),
+                    input=parsed_request_body.model_dump(mode="json"),
+                    output=_langfuse_trace_strategy_output_summary(
+                        final_state=final_state,
+                    ),
+                    tags=["p2", "bass-strategy"],
+                )
+    finally:
+        await asyncio.to_thread(
+            flush_langfuse_client_best_effort,
+            langfuse_client=langfuse_client,
+        )
+
+    return final_state

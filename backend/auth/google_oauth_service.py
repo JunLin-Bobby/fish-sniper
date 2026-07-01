@@ -7,7 +7,7 @@ Steps (matches design spec §2 / §5):
 3. Verify ``id_token`` signature + claims via JWKS.
 4. Gate on ``email_verified is True``.
 5. Find or create a ``users`` row by normalized email.
-6. Issue a FishSniper JWT (same call as the OTP path) and return ``is_new_user``.
+6. Issue a FishSniper JWT and return ``is_new_user``.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from auth.email import normalize_email
 from auth.google_id_token_verification import (
     GoogleIdTokenInvalidError,
     GoogleJwksKeyResolver,
@@ -29,10 +30,9 @@ from auth.google_oauth_client import (
     GoogleOAuthIdentityServiceUnavailableError,
 )
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from persistence.port import FishSniperPersistencePort
-from schemas.auth_schemas import VerifyEmailOtpResponseBody
-from settings import FishSniperBackendSettings
-from text_normalization import normalize_email_address_for_otp_login
+from auth.schemas import LoginResponseBody
+from persistence.port import PersistencePort
+from shared_infras.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,12 @@ def perform_google_oauth_exchange_for_fish_sniper_user(
     authorization_code: str,
     pkce_code_verifier: str,
     redirect_uri: str,
-    fish_sniper_backend_settings: FishSniperBackendSettings,
-    fish_sniper_persistence: FishSniperPersistencePort,
+    fish_sniper_backend_settings: AppSettings,
+    fish_sniper_persistence: PersistencePort,
     reference_time_utc: datetime,
     google_oauth_token_exchange_callable: Callable[..., dict[str, Any]],
     google_jwks_key_resolver: GoogleJwksKeyResolver,
-) -> VerifyEmailOtpResponseBody:
+) -> LoginResponseBody:
     """Run steps 1–6 of the Google OAuth identity flow and return a FishSniper JWT."""
 
     client_id = fish_sniper_backend_settings.google_oauth_client_id
@@ -106,7 +106,7 @@ def perform_google_oauth_exchange_for_fish_sniper_user(
             "Google account email is not verified"
         )
 
-    normalized_email_address = normalize_email_address_for_otp_login(identity.email)
+    normalized_email_address = normalize_email(identity.email)
 
     existing_user_row = fish_sniper_persistence.fetch_user_row_by_normalized_email(
         normalized_email_address=normalized_email_address,
@@ -126,7 +126,7 @@ def perform_google_oauth_exchange_for_fish_sniper_user(
         normalized_email_address=normalized_email_address,
         fish_sniper_backend_settings=fish_sniper_backend_settings,
     )
-    return VerifyEmailOtpResponseBody(access_token=access_token, is_new_user=is_new_user)
+    return LoginResponseBody(access_token=access_token, is_new_user=is_new_user)
 
 
 __all__ = [

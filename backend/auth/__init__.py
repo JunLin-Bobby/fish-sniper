@@ -1,1 +1,1 @@
-"""Authentication helpers (OTP, JWT)."""
+"""Authentication helpers (JWT, Google OAuth)."""
