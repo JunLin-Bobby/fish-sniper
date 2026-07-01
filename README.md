@@ -124,18 +124,33 @@ All DB operations go through a `FishSniperPersistencePort` Protocol. The Supabas
 ## 📁 Project structure
 
 ```
+.github/workflows/  CI (pytest, SKIP_AUTH guard)
 backend/
-  agent/          LangGraph pipeline, prompt assembler, Gemini client
-  embedding/      Embedding port, Gemini adapter, text composition
-  persistence/    Port (Protocol), Supabase adapter, SQL RPCs
-  auth/           JWT, OTP, Google OAuth exchange + JWKS verification
-  routes/         FastAPI routers with full OpenAPI docs
-  tests/          pytest with in-memory adapters, fake clients
+  main.py           FastAPI app factory, CORS, rate limiting, router wiring
+  shared_infras/    Settings, security, rate limiting, error envelopes, time seam
+  strategy/         LangGraph pipeline, prompt assembler, strategy router
+  llm/              LLM port, Gemini/OpenAI adapters, model registry & resolution
+  embedding/        Embedding port, Gemini client, log/query text composition
+  persistence/      Port (Protocol), Supabase adapter, per-domain deps
+  auth/             JWT, email OTP, Google OAuth exchange + JWKS verification
+  logs/             Fishing log CRUD router & schemas
+  users/            Account deletion & user preferences routers
+  weather/          OpenWeather client, snapshot cache, weather router
+  tests/            pytest — api, unit, doubles, support fixtures
+  Dockerfile        Production image (uv)
+  pyproject.toml    Python deps & tooling (uv)
 frontend/
   src/
-    auth/         OTP flow, Google OAuth PKCE, token storage
-    pages/        Strategy, My Logs, Onboarding, Google callback
-    api/          Typed API client
-scripts/          Supabase schema migrations and seed data
-docs/             Internal specs and implementation plans
+    pages/          Strategy, report, My Logs, onboarding, auth, settings
+    strategy/       Report UI, sonar HUD console, session storage
+    fishSniperLogs/ Log form validation, lure catalog, list session cache
+    auth/           OTP flow, Google OAuth PKCE, token storage
+    api/            Typed HTTP clients & response guards
+    hooks/          Auth session, weather, strategy mutation, preferences
+    layout/         Signed-in app shell & outlet context
+    components/     Auth & settings UI
+    ui/             Shared tactical page/auth shells
+scripts/            Supabase schema provisioning (`supabase_reset_full_environment.sql`)
+docs/               Internal specs and implementation plans
+images/             README assets (logo, screenshots)
 ```
