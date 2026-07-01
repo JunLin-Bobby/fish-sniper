@@ -14,7 +14,7 @@ from uuid import uuid4
 
 import pytest
 
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from strategy.graph import (
     node_load_region_and_weather,
 )

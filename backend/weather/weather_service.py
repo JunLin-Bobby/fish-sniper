@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from weather.in_memory_weather_cache import InMemoryFishSniperWeatherSnapshotCache
 from weather.openweather_client import (
     afetch_current_weather_snapshot_from_open_weather_map_or_raise_for_unavailable,

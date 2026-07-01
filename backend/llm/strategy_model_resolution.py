@@ -7,7 +7,7 @@ from typing import Any
 
 from llm.adapters.keys import has_api_key_for_model
 from llm.registry import ModelRegistry
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 @dataclass(frozen=True, slots=True)

@@ -11,14 +11,12 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from deps import (
-    get_fish_sniper_embedding_client,
-    get_persistence,
-    get_reference_time_utc_callable,
-)
+from embedding.deps import get_fish_sniper_embedding_client
 from llm.models import LlmGenerationResult
 from main import create_fish_sniper_app
-from settings import AppSettings, get_settings
+from persistence.deps import get_persistence
+from shared_infras.settings import AppSettings, get_settings
+from shared_infras.time import get_reference_time_utc_callable
 from tests.doubles import FakeFishSniperEmbeddingClient, InMemoryFishSniperPersistenceAdapter
 
 _STRATEGY_LLM_JSON = json.dumps(

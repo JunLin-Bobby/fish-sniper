@@ -174,7 +174,7 @@ class AppSettings(BaseSettings):
     strategy_prompt_version: str = Field(
         default="v1_production",
         description=(
-            "Bass strategy prompt template bundle under backend/agent/prompts/<version>/. "
+            "Bass strategy prompt template bundle under backend/strategy/prompts/<version>/. "
             "Change locally to compare CoT experiments without altering API I/O."
         ),
     )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from settings import get_settings
+from shared_infras.settings import get_settings
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 
 

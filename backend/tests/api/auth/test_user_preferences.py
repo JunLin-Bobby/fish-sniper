@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import create_fish_sniper_app
-from settings import get_settings
+from shared_infras.settings import get_settings
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 from tests.support.app_factory import install_auth_dependency_overrides
 from tests.support.jwt_helpers import bearer_token_for_user

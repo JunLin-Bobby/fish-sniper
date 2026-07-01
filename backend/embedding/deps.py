@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from embedding.port import FishSniperEmbeddingClient
-from settings import get_settings
+from shared_infras.settings import get_settings
 
 _embedding_client_singleton: FishSniperEmbeddingClient | None = None
 

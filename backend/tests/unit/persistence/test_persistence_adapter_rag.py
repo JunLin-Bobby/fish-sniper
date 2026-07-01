@@ -14,7 +14,7 @@ from persistence.port import FishSniperFishingLogSimilarityHit
 from persistence.supabase_fish_sniper_persistence_adapter import (
     SupabaseFishSniperPersistenceAdapter,
 )
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 
 

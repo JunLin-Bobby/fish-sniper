@@ -16,7 +16,7 @@ from llm.models import ModelConfig
 from llm.port import GenerationMisconfiguredError, GenerationUnavailableError
 from llm.registry import load_registry
 from llm.router import TextGenerationRouter
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 def _gemini_config() -> ModelConfig:

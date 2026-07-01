@@ -8,9 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from deps import get_persistence
 from main import create_fish_sniper_app
-from settings import AppSettings, get_settings
+from persistence.deps import get_persistence
+from shared_infras.settings import AppSettings, get_settings
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 
 

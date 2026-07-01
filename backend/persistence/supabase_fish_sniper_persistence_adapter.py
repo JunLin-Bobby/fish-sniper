@@ -16,7 +16,7 @@ from persistence.port import (
     FishSniperUserPreferencesRow,
     FishSniperUserRow,
 )
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 

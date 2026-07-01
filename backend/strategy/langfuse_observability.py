@@ -6,7 +6,7 @@ from typing import Any
 
 from langfuse import Langfuse
 
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 def build_langfuse_client_or_none(

@@ -19,7 +19,7 @@ import jwt
 from fastapi import HTTPException, status
 
 from auth.email import normalize_email
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 def issue_access_token_jwt_for_fish_sniper_user_id(

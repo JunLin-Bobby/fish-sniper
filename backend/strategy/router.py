@@ -3,20 +3,17 @@
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
-from deps import (
-    FishSniperEmbeddingClientDep,
-    PersistenceDep,
-    ReferenceTimeUtcCallableDep,
-    TextGenerationRouterDep,
-    get_fish_sniper_weather_snapshot_cache_port,
-)
+from embedding.deps import FishSniperEmbeddingClientDep
 from llm.strategy_model_resolution import (
     StrategyLlmModelResolutionError,
     resolve_strategy_llm_model_id,
 )
-from rate_limiting import fish_sniper_api_limiter
-from security import FishSniperUserIdDep
-from settings import SettingsDep
+from persistence.deps import PersistenceDep
+from shared_infras.rate_limiting import fish_sniper_api_limiter
+from shared_infras.security import FishSniperUserIdDep
+from shared_infras.settings import SettingsDep
+from shared_infras.time import ReferenceTimeUtcCallableDep
+from strategy.deps import TextGenerationRouterDep
 from strategy.graph import invoke_strategy_graph
 from strategy.schemas import (
     GenerateBassStrategyFallbackResponseBody,
@@ -25,6 +22,7 @@ from strategy.schemas import (
     ListAgentLlmModelsResponseBody,
     ListedAgentLlmModelItem,
 )
+from weather.deps import get_fish_sniper_weather_snapshot_cache_port
 
 router = APIRouter()
 

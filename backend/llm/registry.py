@@ -15,7 +15,7 @@ from llm.models import (
     RegistryConfigurationError,
     UnknownModelError,
 )
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 # --- Module constants ---------------------------------------------------------
 

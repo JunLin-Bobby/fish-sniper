@@ -4,15 +4,18 @@ Protected route 在參數列宣告 FishSniperUserIdDep 即可；FastAPI 會在 h
 依序跑本模組的 Depends，失敗則直接 401/503，不進入 route 業務邏輯。
 """
 
+from __future__ import annotations
+
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, status
 
 from auth.jwt_tokens import decode_fish_sniper_user_id_from_access_token_jwt
-from deps import PersistenceDep
+from persistence.deps import get_persistence
 from persistence.errors import FishSniperPersistenceUnavailableError
-from settings import SettingsDep
+from persistence.port import PersistencePort
+from shared_infras.settings import AppSettings, SettingsDep, get_settings
 
 # ---------------------------------------------------------------------------
 # 前置檢查：Authorization header 格式（避免無 Bearer 時仍去連 DB）
@@ -39,8 +42,8 @@ def _ensure_bearer_authorization_header_or_skip_auth(
 def get_current_fish_sniper_user_id_from_authorization_header(
     _: Annotated[None, Depends(_ensure_bearer_authorization_header_or_skip_auth)],
     authorization: Annotated[str | None, Header()] = None,  # 請求參數：Authorization header
-    fish_sniper_backend_settings: SettingsDep = ...,
-    fish_sniper_persistence: PersistenceDep = ...,
+    fish_sniper_backend_settings: Annotated[AppSettings, Depends(get_settings)] = ...,
+    fish_sniper_persistence: Annotated[PersistencePort, Depends(get_persistence)] = ...,
 ) -> UUID:
     """Resolve the caller's user id from `Authorization: Bearer`, or SKIP_AUTH in dev."""
 

@@ -4,15 +4,13 @@ from datetime import UTC
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from deps import (
-    PersistenceDep,
-    ReferenceTimeUtcCallableDep,
-    get_fish_sniper_weather_snapshot_cache_port,
-)
+from persistence.deps import PersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import fish_sniper_api_limiter
-from security import FishSniperUserIdDep
-from settings import SettingsDep
+from shared_infras.rate_limiting import fish_sniper_api_limiter
+from shared_infras.security import FishSniperUserIdDep
+from shared_infras.settings import SettingsDep
+from shared_infras.time import ReferenceTimeUtcCallableDep
+from weather.deps import get_fish_sniper_weather_snapshot_cache_port
 from weather.port import FishSniperOpenWeatherSnapshot
 from weather.schemas import CurrentWeatherResponseBody
 from weather.weather_errors import FishSniperWeatherUnavailableError

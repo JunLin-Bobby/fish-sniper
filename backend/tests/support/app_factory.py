@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import datetime
 
-from deps import get_persistence, get_reference_time_utc_callable
+from persistence.deps import get_persistence
+from shared_infras.time import get_reference_time_utc_callable
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 
 

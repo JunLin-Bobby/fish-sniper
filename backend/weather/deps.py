@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
+from fastapi import Depends
+
 from weather.port import WeatherSnapshotCachePort
 from weather.weather_service import create_default_in_memory_weather_cache
 
@@ -15,3 +19,9 @@ def get_fish_sniper_weather_snapshot_cache_port() -> WeatherSnapshotCachePort:
     if _weather_snapshot_cache_singleton is None:
         _weather_snapshot_cache_singleton = create_default_in_memory_weather_cache()
     return _weather_snapshot_cache_singleton
+
+
+WeatherSnapshotCacheDep = Annotated[
+    WeatherSnapshotCachePort,
+    Depends(get_fish_sniper_weather_snapshot_cache_port),
+]

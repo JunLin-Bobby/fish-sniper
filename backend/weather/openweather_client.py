@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from weather.port import FishSniperOpenWeatherSnapshot
 from weather.region_normalization import normalize_region_display_name_for_open_weather_map_query
 from weather.weather_errors import FishSniperWeatherUnavailableError

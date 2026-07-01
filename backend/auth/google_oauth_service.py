@@ -32,7 +32,7 @@ from auth.google_oauth_client import (
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
 from auth.schemas import LoginResponseBody
 from persistence.port import PersistencePort
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 

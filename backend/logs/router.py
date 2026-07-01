@@ -8,26 +8,24 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from deps import (
-    FishSniperEmbeddingClientDep,
-    PersistenceDep,
-    ReferenceTimeUtcCallableDep,
-)
+from embedding.deps import FishSniperEmbeddingClientDep
 from embedding.fish_sniper_log_embedding_text import (
     EMBEDDING_TEXT_VERSION,
     compose_fishing_log_embedding_text,
 )
 from embedding.port import FishSniperEmbeddingUnavailableError
-from error_envelopes import service_temporarily_unavailable_response
 from logs.schemas import (
     CreateFishingLogResponseBody,
     CreateOrUpdateFishingLogRequestBody,
     FishingLogResponseBody,
 )
+from persistence.deps import PersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import FishSniperFishingLogRow
-from rate_limiting import fish_sniper_api_limiter
-from security import FishSniperUserIdDep
+from shared_infras.error_envelopes import service_temporarily_unavailable_response
+from shared_infras.rate_limiting import fish_sniper_api_limiter
+from shared_infras.security import FishSniperUserIdDep
+from shared_infras.time import ReferenceTimeUtcCallableDep
 
 logger = logging.getLogger(__name__)
 

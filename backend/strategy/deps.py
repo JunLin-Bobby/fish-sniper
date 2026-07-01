@@ -8,7 +8,7 @@ from fastapi import Depends
 
 from llm.registry import ModelRegistry, load_registry
 from llm.router import TextGenerationRouter
-from settings import get_settings
+from shared_infras.settings import get_settings
 
 _model_registry_singleton: ModelRegistry | None = None
 _text_generation_router_singleton: TextGenerationRouter | None = None

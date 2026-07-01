@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from llm.models import ModelConfig
 from llm.port import GenerationMisconfiguredError
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 # Catalog ``api_key_env`` values supported today (must match settings fields).
 _API_KEY_ENV_TO_SETTINGS_ATTR: dict[str, str] = {

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from settings import get_settings
+from shared_infras.settings import get_settings
 from tests.doubles.fake_embedding import FakeFishSniperEmbeddingClient
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 

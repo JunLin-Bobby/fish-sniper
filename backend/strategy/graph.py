@@ -23,7 +23,7 @@ from llm.port import GenerationMisconfiguredError, GenerationUnavailableError
 from llm.router import TextGenerationRouter
 from persistence.errors import FishSniperPersistenceUnavailableError
 from persistence.port import PersistencePort
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from strategy.json_payload_extraction import extract_first_json_object_dict_from_llm_text
 from strategy.langfuse_observability import (
     build_langfuse_client_or_none,

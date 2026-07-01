@@ -17,7 +17,7 @@ from embedding.port import (
     FishSniperEmbeddingMisconfiguredError,
     FishSniperEmbeddingUnavailableError,
 )
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 def _build_settings(*, max_attempts: int = 2, dimensions: int = 1536) -> AppSettings:

@@ -8,7 +8,7 @@ from llm.strategy_model_resolution import (
     StrategyLlmModelResolutionError,
     resolve_strategy_llm_model_id,
 )
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 
 
 def test_resolve_uses_catalog_default_when_omitted() -> None:

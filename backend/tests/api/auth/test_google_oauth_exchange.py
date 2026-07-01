@@ -18,15 +18,15 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from auth.google_id_token_verification import GoogleJwksKeyResolver
-from deps import (
+from auth.deps import (
     get_google_jwks_key_resolver,
     get_google_oauth_token_exchange_callable,
-    get_persistence,
-    get_reference_time_utc_callable,
 )
+from auth.google_id_token_verification import GoogleJwksKeyResolver
 from main import create_fish_sniper_app
-from settings import get_settings
+from persistence.deps import get_persistence
+from shared_infras.settings import get_settings
+from shared_infras.time import get_reference_time_utc_callable
 from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
 
 _TEST_CLIENT_ID = "fishsniper-test-client.apps.googleusercontent.com"

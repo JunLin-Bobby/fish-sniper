@@ -28,7 +28,8 @@ from starlette.responses import JSONResponse
 
 from auth.email import normalize_email
 from auth.jwt_tokens import decode_fish_sniper_rate_limit_key_from_access_token_jwt
-from settings import AppSettings, get_settings
+
+from .settings import AppSettings, get_settings
 
 # ---------------------------------------------------------------------------
 # 私有：Starlette .env 讀取 patch（僅供 slowapi 初始化期間使用）

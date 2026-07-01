@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from deps import PersistenceDep, ReferenceTimeUtcCallableDep
+from persistence.deps import PersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import fish_sniper_api_limiter
-from security import FishSniperUserIdDep
+from shared_infras.rate_limiting import fish_sniper_api_limiter
+from shared_infras.security import FishSniperUserIdDep
+from shared_infras.time import ReferenceTimeUtcCallableDep
 from users.schemas import (
     SaveUserPreferencesRequestBody,
     SaveUserPreferencesResponseBody,

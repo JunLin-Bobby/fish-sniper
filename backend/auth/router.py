@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Request, status
 
+from auth.deps import GoogleJwksKeyResolverDep, GoogleOAuthTokenExchangeCallableDep
 from auth.google_oauth_service import (
     GoogleIdTokenInvalidError,
     GoogleOAuthCodeRejectedError,
@@ -16,15 +17,11 @@ from auth.schemas import (
     GoogleOAuthExchangeRequestBody,
     LoginResponseBody,
 )
-from deps import (
-    GoogleJwksKeyResolverDep,
-    GoogleOAuthTokenExchangeCallableDep,
-    PersistenceDep,
-    ReferenceTimeUtcCallableDep,
-)
+from persistence.deps import PersistenceDep
 from persistence.errors import FishSniperPersistenceUnavailableError
-from rate_limiting import enforce_google_oauth_exchange_ip_rate_limit_or_raise_429
-from settings import SettingsDep
+from shared_infras.rate_limiting import enforce_google_oauth_exchange_ip_rate_limit_or_raise_429
+from shared_infras.settings import SettingsDep
+from shared_infras.time import ReferenceTimeUtcCallableDep
 
 router = APIRouter()
 

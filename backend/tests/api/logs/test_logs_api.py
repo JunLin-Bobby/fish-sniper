@@ -11,18 +11,16 @@ from uuid import UUID
 from fastapi.testclient import TestClient
 
 from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from deps import (
-    get_fish_sniper_embedding_client,
-    get_persistence,
-    get_reference_time_utc_callable,
-)
+from embedding.deps import get_fish_sniper_embedding_client
 from embedding.port import (
     FishSniperEmbeddingClient,
     FishSniperEmbeddingUnavailableError,
 )
 from main import create_fish_sniper_app
+from persistence.deps import get_persistence
 from persistence.errors import FishSniperPersistenceUnavailableError
-from settings import get_settings
+from shared_infras.settings import get_settings
+from shared_infras.time import get_reference_time_utc_callable
 from tests.doubles import FakeFishSniperEmbeddingClient, InMemoryFishSniperPersistenceAdapter
 
 _FIXTURES_DIR = Path(__file__).resolve().parent.parent.parent / "fixtures"

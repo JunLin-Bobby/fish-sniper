@@ -11,7 +11,7 @@ from embedding.port import (
     FishSniperEmbeddingUnavailableError,
 )
 from persistence.errors import FishSniperPersistenceUnavailableError
-from settings import AppSettings
+from shared_infras.settings import AppSettings
 from strategy.graph import node_search_personal_reference_log
 from strategy.schemas import GenerateBassStrategyRequestBody, ManualWeatherPayload
 from tests.doubles import FakeFishSniperEmbeddingClient, InMemoryFishSniperPersistenceAdapter
