@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FishSniper UI Exploration</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #020617;
+        --ink: #f8fafc;
+        --muted: #94a3b8;
+        --faint: #64748b;
+        --line: rgba(255, 255, 255, 0.13);
+        --panel: rgba(7, 13, 25, 0.78);
+        --panel-2: rgba(15, 23, 42, 0.7);
+        --green: #3dff8a;
+        --green-2: #9bffd0;
+        --cyan: #38d6ff;
+        --amber: #fbbf24;
+        --rose: #fb7185;
+        --violet: #a78bfa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 18% -5%, rgba(61, 255, 138, 0.22), transparent 34rem),
+          radial-gradient(circle at 78% 8%, rgba(56, 214, 255, 0.16), transparent 36rem),
+          radial-gradient(circle at 50% 72%, rgba(167, 139, 250, 0.13), transparent 42rem),
+          linear-gradient(180deg, #03101d 0%, var(--bg) 48%, #01040a 100%);
+        color: var(--ink);
+        font-family: "Fira Sans", ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 72%);
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .app {
+        width: min(1440px, 100%);
+        margin: 0 auto;
+        padding: 22px;
+      }
+
+      .shell {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        background: rgba(2, 6, 23, 0.72);
+        box-shadow: 0 32px 90px rgba(0, 0, 0, 0.46);
+        backdrop-filter: blur(24px);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 72px;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(2, 6, 23, 0.55);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 190px;
+      }
+
+      .mark {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 1px solid rgba(61, 255, 138, 0.46);
+        border-radius: 10px;
+        background: linear-gradient(145deg, rgba(61, 255, 138, 0.2), rgba(56, 214, 255, 0.08));
+        color: var(--green);
+        font-weight: 800;
+      }
+
+      .brand strong,
+      .page-title h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      .brand span,
+      .eyebrow,
+      .label,
+      .tab,
+      .metric small,
+      .rank-number {
+        text-transform: uppercase;
+      }
+
+      .brand span,
+      .eyebrow,
+      .label,
+      .metric small {
+        color: var(--faint);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        padding: 4px;
+        background: rgba(0, 0, 0, 0.24);
+      }
+
+      .tab {
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 8px 14px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+      }
+
+      .tab.active {
+        background: rgba(61, 255, 138, 0.16);
+        color: var(--green-2);
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 999px;
+        background: var(--green);
+        box-shadow: 0 0 18px rgba(61, 255, 138, 0.85);
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr);
+        min-height: calc(100vh - 116px);
+      }
+
+      .rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 12px;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.17);
+      }
+
+      .rail button {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .rail button.active {
+        border-color: rgba(61, 255, 138, 0.5);
+        background: rgba(61, 255, 138, 0.14);
+        color: var(--green);
+      }
+
+      .content {
+        min-width: 0;
+        padding: 22px;
+      }
+
+      .page-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .page-title h1 {
+        margin-top: 8px;
+        max-width: 780px;
+        font-size: clamp(32px, 4.2vw, 58px);
+        line-height: 0.96;
+        letter-spacing: 0;
+      }
+
+      .page-title p {
+        max-width: 660px;
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--ink);
+        cursor: pointer;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .btn.primary {
+        border-color: rgba(61, 255, 138, 0.52);
+        background: var(--green);
+        color: #031007;
+        box-shadow: 0 0 36px rgba(61, 255, 138, 0.28);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+        gap: 18px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--panel);
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
+        backdrop-filter: blur(18px);
+      }
+
+      .panel-pad {
+        padding: 18px;
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .panel h2 {
+        font-size: 17px;
+        letter-spacing: 0;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.28);
+        color: var(--muted);
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .chip.good {
+        border-color: rgba(61, 255, 138, 0.36);
+        color: var(--green-2);
+      }
+
+      .weather {
+        display: grid;
+        grid-template-columns: 1fr 210px;
+        gap: 18px;
+        min-height: 270px;
+      }
+
+      .graph-wrap {
+        position: relative;
+        min-height: 220px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+          rgba(0, 0, 0, 0.22);
+        background-size: 100% 25%, 16.666% 100%, auto;
+      }
+
+      svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .graph-labels {
+        position: absolute;
+        inset: 12px 14px auto 14px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--faint);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .weather-stats {
+        display: grid;
+        gap: 10px;
+      }
+
+      .metric {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        padding: 13px;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 7px;
+        font-size: 28px;
+        letter-spacing: 0;
+      }
+
+      .mission {
+        display: grid;
+        grid-template-columns: minmax(0, 0.88fr) minmax(300px, 1.12fr);
+        gap: 18px;
+      }
+
+      .map {
+        min-height: 318px;
+        background:
+          radial-gradient(circle at 70% 28%, rgba(56, 214, 255, 0.18), transparent 13rem),
+          linear-gradient(135deg, rgba(5, 150, 105, 0.17), transparent 48%),
+          #04111c;
+      }
+
+      .lake {
+        position: absolute;
+        inset: 58px 34px 42px 34px;
+        border-radius: 42% 58% 50% 44%;
+        background:
+          radial-gradient(circle at 34% 34%, rgba(155, 255, 208, 0.22), transparent 5rem),
+          linear-gradient(135deg, rgba(56, 214, 255, 0.34), rgba(6, 78, 59, 0.56));
+        border: 1px solid rgba(56, 214, 255, 0.26);
+        box-shadow: inset 0 0 48px rgba(0, 0, 0, 0.42);
+        clip-path: polygon(8% 35%, 18% 14%, 42% 10%, 54% 24%, 77% 16%, 92% 34%, 85% 58%, 96% 75%, 73% 92%, 48% 78%, 30% 91%, 10% 72%);
+      }
+
+      .pin {
+        position: absolute;
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid rgba(61, 255, 138, 0.52);
+        border-radius: 50%;
+        background: rgba(3, 16, 7, 0.74);
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 800;
+        box-shadow: 0 0 24px rgba(61, 255, 138, 0.26);
+      }
+
+      .pin.one {
+        left: 31%;
+        top: 44%;
+      }
+
+      .pin.two {
+        right: 24%;
+        top: 33%;
+        border-color: rgba(56, 214, 255, 0.52);
+        color: var(--cyan);
+      }
+
+      .pin.three {
+        right: 33%;
+        bottom: 25%;
+        border-color: rgba(251, 191, 36, 0.52);
+        color: var(--amber);
+      }
+
+      .map-caption {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        left: 16px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .score-card {
+        display: grid;
+        min-height: 318px;
+        grid-template-rows: auto 1fr auto;
+        gap: 16px;
+      }
+
+      .score {
+        display: grid;
+        place-items: center;
+        min-height: 130px;
+        border: 1px solid rgba(61, 255, 138, 0.2);
+        border-radius: 16px;
+        background: radial-gradient(circle, rgba(61, 255, 138, 0.16), rgba(0, 0, 0, 0.16) 62%);
+        text-align: center;
+      }
+
+      .score strong {
+        font-size: 62px;
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .score span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .recommendations {
+        display: grid;
+        gap: 10px;
+      }
+
+      .rank {
+        display: grid;
+        grid-template-columns: 38px 1fr auto;
+        align-items: center;
+        gap: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        padding: 11px;
+      }
+
+      .rank-number {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(61, 255, 138, 0.14);
+        color: var(--green-2);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .rank h3 {
+        font-size: 14px;
+      }
+
+      .rank p {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .rank b {
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .logs {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(310px, 0.78fr);
+        gap: 18px;
+      }
+
+      .timeline {
+        display: grid;
+        gap: 10px;
+      }
+
+      .log-row {
+        display: grid;
+        grid-template-columns: 76px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+        padding: 12px;
+      }
+
+      .log-date {
+        color: var(--green-2);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .log-row h3 {
+        font-size: 14px;
+      }
+
+      .log-row p {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .add-log {
+        display: grid;
+        gap: 12px;
+      }
+
+      .input-line {
+        display: grid;
+        gap: 6px;
+      }
+
+      .input-line span {
+        color: var(--faint);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .fake-input {
+        min-height: 42px;
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.32);
+        color: var(--ink);
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .note {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      @media (max-width: 1120px) {
+        .grid,
+        .mission,
+        .logs,
+        .weather {
+          grid-template-columns: 1fr;
+        }
+
+        .weather-stats {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+
+      @media (max-width: 760px) {
+        .app {
+          padding: 10px;
+        }
+
+        .shell {
+          border-radius: 18px;
+        }
+
+        .topbar,
+        .page-head,
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .topbar,
+        .page-head {
+          align-items: start;
+        }
+
+        .nav,
+        .status,
+        .rail {
+          display: none;
+        }
+
+        .content {
+          padding: 16px;
+        }
+
+        .weather-stats,
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .log-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <section class="shell" aria-label="FishSniper UI exploration demo">
+        <header class="topbar">
+          <div class="brand">
+            <div class="mark">FS</div>
+            <div>
+              <strong>FishSniper</strong><br />
+              <span>Control Room</span>
+            </div>
+          </div>
+          <nav class="nav" aria-label="Demo navigation">
+            <button class="tab active">Forecast</button>
+            <button class="tab">Map</button>
+            <button class="tab">Logs</button>
+            <button class="tab">Report</button>
+          </nav>
+          <div class="status"><span class="pulse"></span>Live weather sync · Lake Washington</div>
+        </header>
+
+        <div class="workspace">
+          <aside class="rail" aria-label="Primary actions">
+            <button class="active" title="Forecast">⌁</button>
+            <button title="Map">⌖</button>
+            <button title="Logs">▤</button>
+            <button title="Settings">⚙</button>
+          </aside>
+
+          <div class="content">
+            <div class="page-head">
+              <div class="page-title">
+                <p class="eyebrow">Prediction graph · tactical forecast</p>
+                <h1>Choose the window, spot, and lure before the bite moves.</h1>
+                <p>
+                  A refined direction based on your sketch: pressure and weather rhythm on top, prediction and map in
+                  the center, catching logs as the feedback loop below.
+                </p>
+              </div>
+              <div class="actions">
+                <button class="btn">Tune inputs</button>
+                <button class="btn primary">Generate plan</button>
+              </div>
+            </div>
+
+            <div class="grid">
+              <div class="stack">
+                <section class="panel panel-pad weather" aria-label="Weather graph">
+                  <div>
+                    <div class="panel-head">
+                      <div>
+                        <p class="eyebrow">01 · Air / pressure / activity</p>
+                        <h2>Today's bite curve</h2>
+                      </div>
+                      <span class="chip good">Prime window · 06:10-09:00</span>
+                    </div>
+                    <div class="graph-wrap">
+                      <div class="graph-labels"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span></div>
+                      <svg viewBox="0 0 720 220" role="img" aria-label="Bite prediction line chart">
+                        <path d="M0 168 C80 158 92 116 154 122 C222 128 222 58 292 68 C366 80 390 132 458 118 C540 101 565 136 626 116 C674 101 690 82 720 72" fill="none" stroke="rgba(61,255,138,.95)" stroke-width="4" />
+                        <path d="M0 168 C80 158 92 116 154 122 C222 128 222 58 292 68 C366 80 390 132 458 118 C540 101 565 136 626 116 C674 101 690 82 720 72 L720 220 L0 220 Z" fill="url(#glow)" opacity=".75" />
+                        <path d="M0 118 C88 112 126 142 190 134 C270 124 310 152 382 132 C466 108 522 86 598 96 C660 104 690 124 720 112" fill="none" stroke="rgba(56,214,255,.68)" stroke-width="2" stroke-dasharray="8 8" />
+                        <defs>
+                          <linearGradient id="glow" x1="0" x2="0" y1="0" y2="1">
+                            <stop offset="0%" stop-color="rgba(61,255,138,.32)" />
+                            <stop offset="100%" stop-color="rgba(61,255,138,0)" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="weather-stats">
+                    <div class="metric"><small>Pressure</small><strong>1017</strong><span class="note">hPa rising slowly</span></div>
+                    <div class="metric"><small>Wind</small><strong>3.8</strong><span class="note">m/s NE bank</span></div>
+                    <div class="metric"><small>Water</small><strong>1.7m</strong><span class="note">target depth</span></div>
+                  </div>
+                </section>
+
+                <section class="mission">
+                  <article class="panel panel-pad score-card">
+                    <div class="panel-head">
+                      <div>
+                        <p class="eyebrow">02 · Prediction</p>
+                        <h2>Mission score</h2>
+                      </div>
+                      <span class="chip">Largemouth</span>
+                    </div>
+                    <div class="score">
+                      <div>
+                        <strong>87</strong>
+                        <span>/100 bite confidence</span>
+                      </div>
+                    </div>
+                    <div class="recommendations">
+                      <div class="rank">
+                        <span class="rank-number">01</span>
+                        <div><h3>Spinnerbait near reed edge</h3><p>Slow roll with 2-3 pause beats.</p></div>
+                        <b>High</b>
+                      </div>
+                      <div class="rank">
+                        <span class="rank-number">02</span>
+                        <div><h3>Weightless worm over flats</h3><p>Work the shadow line after sunrise.</p></div>
+                        <b>Med</b>
+                      </div>
+                      <div class="rank">
+                        <span class="rank-number">03</span>
+                        <div><h3>Jig on outside drop</h3><p>Use if wind pushes bait deeper.</p></div>
+                        <b>Med</b>
+                      </div>
+                    </div>
+                  </article>
+
+                  <article class="panel map" aria-label="Recommended map positions">
+                    <div class="panel-pad">
+                      <p class="eyebrow">03 · Hot zones</p>
+                      <h2>Map-first recommendation</h2>
+                    </div>
+                    <div class="lake"></div>
+                    <span class="pin one">1</span>
+                    <span class="pin two">2</span>
+                    <span class="pin three">3</span>
+                    <div class="map-caption">
+                      <span>North reed pocket · 1.2-1.8m</span>
+                      <span class="chip good">Best cast line</span>
+                    </div>
+                  </article>
+                </section>
+              </div>
+
+              <aside class="stack">
+                <section class="panel panel-pad">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Species rank</p>
+                      <h2>Likely catches</h2>
+                    </div>
+                    <span class="chip">3 targets</span>
+                  </div>
+                  <div class="recommendations">
+                    <div class="rank">
+                      <span class="rank-number">A</span>
+                      <div><h3>Largemouth bass</h3><p>Structure ambush pattern.</p></div>
+                      <b>72%</b>
+                    </div>
+                    <div class="rank">
+                      <span class="rank-number">B</span>
+                      <div><h3>Smallmouth bass</h3><p>Secondary rocky point.</p></div>
+                      <b>18%</b>
+                    </div>
+                    <div class="rank">
+                      <span class="rank-number">C</span>
+                      <div><h3>Yellow perch</h3><p>Bycatch near grass edge.</p></div>
+                      <b>10%</b>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="panel panel-pad">
+                  <div class="panel-head">
+                    <div>
+                      <p class="eyebrow">Catching logs</p>
+                      <h2>Feedback loop</h2>
+                    </div>
+                    <button class="btn primary">Add log</button>
+                  </div>
+                  <div class="logs">
+                    <div class="timeline">
+                      <div class="log-row">
+                        <span class="log-date">Jul 08</span>
+                        <div><h3>West dock pocket</h3><p>2 bass · green pumpkin jig · cloudy</p></div>
+                        <span class="chip good">Matched</span>
+                      </div>
+                      <div class="log-row">
+                        <span class="log-date">Jul 05</span>
+                        <div><h3>North reeds</h3><p>4 bass · spinnerbait · wind NE</p></div>
+                        <span class="chip">RAG</span>
+                      </div>
+                      <div class="log-row">
+                        <span class="log-date">Jun 29</span>
+                        <div><h3>Point dropoff</h3><p>1 bass · deep crank · high sun</p></div>
+                        <span class="chip">Older</span>
+                      </div>
+                    </div>
+                    <form class="add-log">
+                      <div class="input-line"><span>Location</span><div class="fake-input">North reed pocket</div></div>
+                      <div class="split">
+                        <div class="input-line"><span>Catches</span><div class="fake-input">3</div></div>
+                        <div class="input-line"><span>Lure</span><div class="fake-input">Spinnerbait</div></div>
+                      </div>
+                      <p class="note">
+                        Log cards can open into a detail panel. The newest logs feed future strategy generation and keep
+                        the prediction screen from feeling disconnected.
+                      </p>
+                    </form>
+                  </div>
+                </section>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
