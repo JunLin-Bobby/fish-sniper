@@ -1,56 +1,75 @@
-"""HTTP tests that rate limits return 429 when exceeded."""
+"""HTTP tests that Google OAuth exchange rate limits return 429 when exceeded."""
 
 from __future__ import annotations
 
-from uuid import uuid4
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from main import create_fish_sniper_app
-from persistence.deps import get_persistence
-from shared_infras.settings import AppSettings, get_settings
-from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
+from app.auth.deps import (
+    get_google_jwks_key_resolver,
+    get_google_oauth_token_exchange_callable,
+)
+from app.auth.google_id_token import GoogleVerifiedIdentity
+from app.core.settings import get_settings
+from app.core.time import get_reference_time_utc_callable
+from app.db.deps import get_persistence
+from app.main import create_app
+from tests.doubles.in_memory_db import InMemoryPersistenceAdapter
 
 
-def _enable_rate_limits(monkeypatch: pytest.MonkeyPatch) -> AppSettings:
-    monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
-    get_settings.cache_clear()
-    settings = get_settings()
-    assert settings.rate_limit_enabled is True
-    return settings
-
-
-def test_slowapi_bearer_route_returns_429_when_minute_limit_exceeded(
+def test_google_oauth_exchange_returns_429_when_per_ip_minute_limit_exceeded(
     monkeypatch: pytest.MonkeyPatch,
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
+    frozen_clock,
 ) -> None:
-    """GET /agent/models is limited to 120/minute per email via @fish_sniper_api_limiter.limit."""
+    """POST /auth/google/exchange is limited to 30/minute per client IP."""
 
-    settings = _enable_rate_limits(monkeypatch).model_copy(
-        update={"gemini_api_key": "test-gemini-key"},
+    now_utc, _advance = frozen_clock
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "true")
+    monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setenv("GOOGLE_OAUTH_CLIENT_SECRET", "test-google-client-secret")
+    monkeypatch.setenv(
+        "GOOGLE_OAUTH_ALLOWED_REDIRECT_URIS",
+        "http://localhost:5173/auth/google/callback",
     )
-    normalized_email_address = f"rate-limit-models-{uuid4()}@example.com"
-    user_row = in_memory_persistence_adapter.insert_user_row_for_normalized_email(
-        normalized_email_address=normalized_email_address,
+    get_settings.cache_clear()
+
+    def fake_token_exchange(**_kwargs: object) -> dict[str, str]:
+        return {"id_token": "fake-id-token"}
+
+    def fake_verify_identity(**_kwargs: object) -> GoogleVerifiedIdentity:
+        return GoogleVerifiedIdentity(
+            email="rate-limit@example.com",
+            email_verified=True,
+            google_subject="rate-limit-sub",
+        )
+
+    monkeypatch.setattr(
+        "app.auth.service.verify_google_id_token_and_extract_identity",
+        fake_verify_identity,
     )
-    app = create_fish_sniper_app()
-    app.dependency_overrides[get_persistence] = (
-        lambda: in_memory_persistence_adapter
+
+    app = create_app()
+    app.dependency_overrides[get_persistence] = lambda: in_memory_persistence_adapter
+    app.dependency_overrides[get_reference_time_utc_callable] = lambda: now_utc
+    app.dependency_overrides[get_google_oauth_token_exchange_callable] = (
+        lambda: fake_token_exchange
     )
-    token = issue_access_token_jwt_for_fish_sniper_user_id(
-        fish_sniper_user_id=user_row.fish_sniper_user_id,
-        normalized_email_address=normalized_email_address,
-        fish_sniper_backend_settings=settings,
-    )
+    app.dependency_overrides[get_google_jwks_key_resolver] = lambda: MagicMock()
+
     client = TestClient(app)
-    headers = {"Authorization": f"Bearer {token}"}
+    request_body = {
+        "code": "fake-code",
+        "code_verifier": "fake-verifier",
+        "redirect_uri": "http://localhost:5173/auth/google/callback",
+    }
 
-    for _ in range(120):
-        response = client.get("/agent/models", headers=headers)
+    for _ in range(30):
+        response = client.post("/auth/google/exchange", json=request_body)
         assert response.status_code == 200
 
-    rate_limited_response = client.get("/agent/models", headers=headers)
+    rate_limited_response = client.post("/auth/google/exchange", json=request_body)
     assert rate_limited_response.status_code == 429
     assert rate_limited_response.json() == {"error": "Too many requests"}

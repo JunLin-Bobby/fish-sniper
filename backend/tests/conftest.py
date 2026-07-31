@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for FishSniper backend tests."""
+"""Shared pytest fixtures for backend tests."""
 
 from __future__ import annotations
 
@@ -12,9 +12,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from shared_infras.settings import get_settings
-from tests.doubles.fake_embedding import FakeFishSniperEmbeddingClient
-from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
+from app.core.settings import get_settings
+from tests.doubles.in_memory_db import InMemoryPersistenceAdapter
 
 
 @pytest.fixture
@@ -36,12 +35,12 @@ def frozen_clock() -> tuple[Callable[[], datetime], Callable[[float], None]]:
 
 
 @pytest.fixture
-def in_memory_persistence_adapter() -> InMemoryFishSniperPersistenceAdapter:
-    return InMemoryFishSniperPersistenceAdapter()
+def in_memory_persistence_adapter() -> InMemoryPersistenceAdapter:
+    return InMemoryPersistenceAdapter()
 
 
 @pytest.fixture(autouse=True)
-def reset_fish_sniper_backend_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def reset_settings_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stabilize JWT settings and avoid leaking lru_cache between tests."""
 
     monkeypatch.setenv("JWT_SECRET", "unit-test-jwt-secret")
@@ -51,8 +50,3 @@ def reset_fish_sniper_backend_settings_cache(monkeypatch: pytest.MonkeyPatch) ->
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
-
-
-@pytest.fixture
-def fake_fish_sniper_embedding_client() -> FakeFishSniperEmbeddingClient:
-    return FakeFishSniperEmbeddingClient()

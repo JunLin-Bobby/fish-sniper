@@ -1,4 +1,4 @@
-"""Integration tests for POST /auth/google/exchange (TDD RED → GREEN).
+"""Integration tests for POST /auth/google/exchange (TDD RED ??GREEN).
 
 Strategy:
 * Override the FastAPI deps that wrap the two outbound collaborators (Google token
@@ -18,16 +18,16 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from auth.deps import (
+from app.auth.deps import (
     get_google_jwks_key_resolver,
     get_google_oauth_token_exchange_callable,
 )
-from auth.google_id_token_verification import GoogleJwksKeyResolver
-from main import create_fish_sniper_app
-from persistence.deps import get_persistence
-from shared_infras.settings import get_settings
-from shared_infras.time import get_reference_time_utc_callable
-from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
+from app.auth.google_id_token import GoogleJwksKeyResolver
+from app.core.settings import get_settings
+from app.core.time import get_reference_time_utc_callable
+from app.db.deps import get_persistence
+from app.main import create_app
+from tests.doubles.in_memory_db import InMemoryPersistenceAdapter
 
 _TEST_CLIENT_ID = "fishsniper-test-client.apps.googleusercontent.com"
 _TEST_CLIENT_SECRET = "test-client-secret"
@@ -94,12 +94,12 @@ class _FakeJwksKeyResolver(GoogleJwksKeyResolver):
 def _install_google_oauth_dependency_overrides(
     app: Any,
     *,
-    fish_sniper_persistence: InMemoryFishSniperPersistenceAdapter,
+    persistence: InMemoryPersistenceAdapter,
     reference_time_utc_callable: Callable[[], datetime],
     fake_token_response: dict[str, Any],
     jwks_key_resolver: GoogleJwksKeyResolver,
 ) -> None:
-    app.dependency_overrides[get_persistence] = lambda: fish_sniper_persistence
+    app.dependency_overrides[get_persistence] = lambda: persistence
     app.dependency_overrides[get_reference_time_utc_callable] = lambda: reference_time_utc_callable
     app.dependency_overrides[get_google_oauth_token_exchange_callable] = (
         lambda: lambda **_kwargs: fake_token_response
@@ -108,7 +108,7 @@ def _install_google_oauth_dependency_overrides(
 
 
 def test_google_exchange_creates_new_user_and_returns_jwt(
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
     now_utc, _ = frozen_clock
@@ -118,10 +118,10 @@ def test_google_exchange_creates_new_user_and_returns_jwt(
         claims=_valid_google_claims(email="new@example.com"),
     )
 
-    app = create_fish_sniper_app()
+    app = create_app()
     _install_google_oauth_dependency_overrides(
         app,
-        fish_sniper_persistence=in_memory_persistence_adapter,
+        persistence=in_memory_persistence_adapter,
         reference_time_utc_callable=now_utc,
         fake_token_response={"id_token": signed_id_token},
         jwks_key_resolver=_FakeJwksKeyResolver(kid=_TEST_KID, private_key=private_key),
@@ -144,7 +144,7 @@ def test_google_exchange_creates_new_user_and_returns_jwt(
 
 
 def test_google_exchange_merges_existing_user_by_email(
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
     in_memory_persistence_adapter.insert_user_row_for_normalized_email(
@@ -158,10 +158,10 @@ def test_google_exchange_merges_existing_user_by_email(
         claims=_valid_google_claims(email="Merge@Example.COM"),
     )
 
-    app = create_fish_sniper_app()
+    app = create_app()
     _install_google_oauth_dependency_overrides(
         app,
-        fish_sniper_persistence=in_memory_persistence_adapter,
+        persistence=in_memory_persistence_adapter,
         reference_time_utc_callable=now_utc,
         fake_token_response={"id_token": signed_id_token},
         jwks_key_resolver=_FakeJwksKeyResolver(kid=_TEST_KID, private_key=private_key),
@@ -182,15 +182,15 @@ def test_google_exchange_merges_existing_user_by_email(
 
 
 def test_google_exchange_rejects_redirect_uri_not_in_whitelist(
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
     now_utc, _ = frozen_clock
     private_key = _generate_rsa_keypair()
-    app = create_fish_sniper_app()
+    app = create_app()
     _install_google_oauth_dependency_overrides(
         app,
-        fish_sniper_persistence=in_memory_persistence_adapter,
+        persistence=in_memory_persistence_adapter,
         reference_time_utc_callable=now_utc,
         fake_token_response={"id_token": "unused"},
         jwks_key_resolver=_FakeJwksKeyResolver(kid=_TEST_KID, private_key=private_key),
@@ -211,7 +211,7 @@ def test_google_exchange_rejects_redirect_uri_not_in_whitelist(
 
 
 def test_google_exchange_returns_403_when_email_not_verified(
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
     now_utc, _ = frozen_clock
@@ -220,10 +220,10 @@ def test_google_exchange_returns_403_when_email_not_verified(
     claims["email_verified"] = False
     signed_id_token = _sign_id_token(private_key=private_key, claims=claims)
 
-    app = create_fish_sniper_app()
+    app = create_app()
     _install_google_oauth_dependency_overrides(
         app,
-        fish_sniper_persistence=in_memory_persistence_adapter,
+        persistence=in_memory_persistence_adapter,
         reference_time_utc_callable=now_utc,
         fake_token_response={"id_token": signed_id_token},
         jwks_key_resolver=_FakeJwksKeyResolver(kid=_TEST_KID, private_key=private_key),
@@ -245,7 +245,7 @@ def test_google_exchange_returns_403_when_email_not_verified(
 
 def test_google_exchange_returns_500_when_client_id_unset(
     monkeypatch: pytest.MonkeyPatch,
-    in_memory_persistence_adapter: InMemoryFishSniperPersistenceAdapter,
+    in_memory_persistence_adapter: InMemoryPersistenceAdapter,
     frozen_clock: tuple[Callable[[], datetime], Callable[[float], None]],
 ) -> None:
     # ``delenv`` alone does not win over ``SettingsConfigDict(env_file=".env")``:
@@ -255,10 +255,10 @@ def test_google_exchange_returns_500_when_client_id_unset(
     now_utc, _ = frozen_clock
     private_key = _generate_rsa_keypair()
 
-    app = create_fish_sniper_app()
+    app = create_app()
     _install_google_oauth_dependency_overrides(
         app,
-        fish_sniper_persistence=in_memory_persistence_adapter,
+        persistence=in_memory_persistence_adapter,
         reference_time_utc_callable=now_utc,
         fake_token_response={"id_token": "unused"},
         jwks_key_resolver=_FakeJwksKeyResolver(kid=_TEST_KID, private_key=private_key),

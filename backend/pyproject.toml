@@ -12,11 +12,6 @@ dependencies = [
     "websockets>=13.1",
     "pydantic[email]==2.12.5",
     "pydantic-settings==2.11.0",
-    "langgraph==0.6.6",
-    "google-genai==1.38.0",
-    "openai==1.82.0",
-    "PyYAML==6.0.2",
-    "langfuse==3.2.1",
     "slowapi==0.1.9",
     "limits==4.2",
 ]
@@ -46,4 +41,4 @@ select = ["E", "F", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 # `load_dotenv()` must run before application imports that read settings at import-time.
-"main.py" = ["E402"]
+"app/main.py" = ["E402"]

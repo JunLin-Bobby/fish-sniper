@@ -1,4 +1,4 @@
-"""Unit tests for backend/auth/google_oauth_client.py (TDD RED → GREEN)."""
+"""Unit tests for backend/auth/google_oauth_client.py (TDD RED ??GREEN)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-from auth.google_oauth_client import (
+from app.auth.google_oauth import (
     GoogleOAuthCodeRejectedError,
     GoogleOAuthIdentityServiceUnavailableError,
     exchange_authorization_code_for_token_response,
@@ -38,7 +38,7 @@ class _FakeHttpxResponse:
             )
 
 
-_PATCH_TARGET = "auth.google_oauth_client.httpx.post"
+_PATCH_TARGET = "app.auth.google_oauth.httpx.post"
 
 
 def _expected_form_data() -> dict[str, str]:

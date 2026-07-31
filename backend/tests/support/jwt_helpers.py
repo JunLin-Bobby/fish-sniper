@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from auth.jwt_tokens import issue_access_token_jwt_for_fish_sniper_user_id
-from shared_infras.settings import get_settings
-from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
+from app.auth.jwt import issue_access_token
+from app.core.settings import get_settings
+from tests.doubles.in_memory_db import InMemoryPersistenceAdapter
 
 
 def bearer_token_for_user(
     *,
-    persistence: InMemoryFishSniperPersistenceAdapter,
+    persistence: InMemoryPersistenceAdapter,
     email: str,
 ) -> str:
     normalized_email = email.strip().lower()
@@ -21,8 +21,8 @@ def bearer_token_for_user(
             normalized_email_address=normalized_email,
         )
     settings = get_settings()
-    return issue_access_token_jwt_for_fish_sniper_user_id(
-        fish_sniper_user_id=user_row.fish_sniper_user_id,
+    return issue_access_token(
+        user_id=user_row.user_id,
         normalized_email_address=normalized_email,
-        fish_sniper_backend_settings=settings,
+        settings=settings,
     )

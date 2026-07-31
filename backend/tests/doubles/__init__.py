@@ -1,6 +1,5 @@
 """Test doubles."""
 
-from tests.doubles.fake_embedding import FakeFishSniperEmbeddingClient
-from tests.doubles.in_memory_db import InMemoryFishSniperPersistenceAdapter
+from tests.doubles.in_memory_db import InMemoryPersistenceAdapter
 
-__all__ = ["FakeFishSniperEmbeddingClient", "InMemoryFishSniperPersistenceAdapter"]
+__all__ = ["InMemoryPersistenceAdapter"]

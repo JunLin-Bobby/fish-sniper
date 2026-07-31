@@ -1,4 +1,4 @@
-"""Unit tests for backend/auth/google_id_token_verification.py (TDD RED → GREEN).
+"""Unit tests for backend/auth/google_id_token_verification.py (TDD RED ??GREEN).
 
 We sign test ``id_token``s with a locally-generated RSA key and inject a fake JWKS
 resolver so production code paths never touch the real Google JWKS endpoint.
@@ -13,7 +13,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from auth.google_id_token_verification import (
+from app.auth.google_id_token import (
     GoogleIdTokenInvalidError,
     GoogleVerifiedIdentity,
     verify_google_id_token_and_extract_identity,
