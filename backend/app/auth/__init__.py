@@ -1,1 +1,1 @@
-"""Authentication helpers (JWT, Google OAuth)."""
+"""Authentication domain."""

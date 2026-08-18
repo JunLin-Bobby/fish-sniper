@@ -1,1 +1,1 @@
-"""Persistence adapters and ports."""
+"""Database access layer."""

@@ -1,44 +1,29 @@
 [project]
-name = "fishsniper-backend"
+name = "backend"
 version = "0.1.0"
-requires-python = ">=3.12"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
 dependencies = [
-    "fastapi==0.115.12",
-    "uvicorn[standard]==0.34.2",
-    "python-dotenv==1.1.0",
-    "httpx==0.28.1",
-    "pyjwt==2.10.1",
-    "supabase==2.24.0",
-    "websockets>=13.1",
-    "pydantic[email]==2.12.5",
-    "pydantic-settings==2.11.0",
-    "slowapi==0.1.9",
-    "limits==4.2",
+    "fastapi>=0.141.1",
+    "pydantic-settings>=2.15.0",
+    "python-dotenv>=1.2.3",
+    "uvicorn[standard]>=0.52.3",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest==8.3.5",
-    "pytest-asyncio==0.25.3",
-    "ruff==0.11.6",
+    "httpx2>=2.10.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.3",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-markers = [
-    "unit: pure unit tests without HTTP",
-    "api: in-process FastAPI API tests",
-]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-
-[tool.ruff.lint.per-file-ignores]
-# `load_dotenv()` must run before application imports that read settings at import-time.
-"app/main.py" = ["E402"]
