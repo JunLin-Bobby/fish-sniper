@@ -1,14 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Fira Sans", ui-sans-serif, system-ui, sans-serif;
+}
 
 :root {
   color-scheme: dark;
+  --fs-bg: #020617;
+  --fs-ink: #f8fafc;
+  --fs-muted: #94a3b8;
+  --fs-faint: #64748b;
+  --fs-line: rgba(255, 255, 255, 0.13);
+  --fs-panel: rgba(7, 13, 25, 0.78);
+  --fs-green: #3dff8a;
+  --fs-green-soft: #9bffd0;
+  --fs-cyan: #38d6ff;
+  --fs-amber: #fbbf24;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Fira Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 }
 
 body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #09090b;
+  background:
+    radial-gradient(circle at 18% -5%, rgba(61, 255, 138, 0.22), transparent 34rem),
+    radial-gradient(circle at 78% 8%, rgba(56, 214, 255, 0.16), transparent 36rem),
+    radial-gradient(circle at 50% 72%, rgba(167, 139, 250, 0.13), transparent 42rem),
+    linear-gradient(180deg, #03101d 0%, var(--fs-bg) 48%, #01040a 100%);
+  color: var(--fs-ink);
+  letter-spacing: 0;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 72%);
+}
+
+button {
+  font-family: inherit;
 }

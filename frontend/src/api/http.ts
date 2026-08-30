@@ -23,3 +23,24 @@ export async function getJson<TResponse>(options: {
 
   return JSON.parse(responseText) as TResponse
 }
+
+export async function postJson<TResponse>(options: {
+  apiBaseUrl: string
+  path: string
+  body: unknown
+}): Promise<TResponse> {
+  const response = await fetch(`${options.apiBaseUrl}${options.path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(options.body),
+  })
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    throw new HttpStatusError(response.status, responseText)
+  }
+
+  return JSON.parse(responseText) as TResponse
+}
