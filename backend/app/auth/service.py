@@ -7,6 +7,7 @@ from app.auth.schemas import AuthTokenResponse, GoogleOAuthExchangeRequest
 from app.core.config import Settings
 
 
+# 統整 Google token 交換、身分驗證與 FishSniper access token 簽發三個步驟。
 async def exchange_google_oauth_code(
     settings: Settings,
     payload: GoogleOAuthExchangeRequest,

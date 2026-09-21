@@ -7,6 +7,7 @@ import {
   readStoredGoogleOAuthRequest,
 } from '../lib/googleOAuthPkce.ts'
 
+// 處理 Google 導回的 callback URL，驗證 state 後將授權碼交給後端完成登入。
 export function GoogleOAuthCallbackPage(props: {
   apiBaseUrl: string
   persistAccessToken: (accessToken: string) => void
@@ -22,6 +23,7 @@ export function GoogleOAuthCallbackPage(props: {
     }
     hasStartedExchange.current = true
 
+    // 讀取 callback 查詢參數，並以授權碼和 code_verifier 向後端交換 FishSniper token。
     const completeSignIn = async (): Promise<void> => {
       const queryParameters = new URLSearchParams(window.location.search)
       const oauthErrorCode = queryParameters.get('error')

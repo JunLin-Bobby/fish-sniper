@@ -4,10 +4,12 @@ import { GoogleSignInButton } from '../components/GoogleSignInButton.tsx'
 import { readGoogleOAuthPublicConfig } from '../../config/env.ts'
 import { beginGoogleOAuthAuthorizationFlowFromBrowser } from '../lib/googleOAuthPkce.ts'
 
+// 顯示登入入口，使用者點擊後開始 Google OAuth 授權流程。
 export function SignInPage() {
   const [failureMessage, setFailureMessage] = useState<string | null>(null)
   const googleOAuthConfig = useMemo(() => readGoogleOAuthPublicConfig(), [])
 
+  // 確認前端環境設定完整，再將瀏覽器導向 Google 登入與同意畫面。
   const handleContinueWithGoogle = async (): Promise<void> => {
     setFailureMessage(null)
     if (!googleOAuthConfig) {

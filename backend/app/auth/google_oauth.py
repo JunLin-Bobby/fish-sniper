@@ -25,6 +25,7 @@ class GoogleOAuthIdentityError(GoogleOAuthError):
     pass
 
 
+# 使用授權碼與 PKCE code_verifier 向 Google 換取包含 id_token 的 token 資料。
 async def exchange_authorization_code_for_google_tokens(
     settings: Settings,
     *,
@@ -60,6 +61,7 @@ async def exchange_authorization_code_for_google_tokens(
     return token_payload
 
 
+# 驗證 Google id_token 的簽章、來源、目標 client 與必要的使用者身分欄位。
 def verify_google_id_token(settings: Settings, *, google_id_token: str) -> dict[str, Any]:
     try:
         claims = id_token.verify_oauth2_token(

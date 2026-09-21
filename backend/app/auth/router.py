@@ -13,6 +13,7 @@ from app.core.config import Settings, get_settings
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# 接收前端 callback 取得的授權碼，完成登入流程並將錯誤轉成對應的 HTTP 狀態碼。
 @router.post("/google/exchange", response_model=AuthTokenResponse)
 async def exchange_google_authorization_code(
     payload: GoogleOAuthExchangeRequest,

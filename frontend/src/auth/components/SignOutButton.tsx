@@ -1,3 +1,4 @@
+// 登出操作按鈕，點擊後交由登入狀態 hook 清除 FishSniper token。
 export function SignOutButton(props: { onSignOut: () => void }) {
   return (
     <button

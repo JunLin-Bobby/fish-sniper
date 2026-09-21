@@ -9,6 +9,7 @@ class JwtConfigurationError(RuntimeError):
     pass
 
 
+# 將已驗證的 Google 使用者身分簽發成 FishSniper 自己使用的 access token。
 def create_access_token(settings: Settings, *, subject: str, email: str) -> str:
     if not settings.jwt_secret_key:
         raise JwtConfigurationError("JWT_SECRET_KEY is not configured.")
