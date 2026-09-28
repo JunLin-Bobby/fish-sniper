@@ -33,9 +33,11 @@ async def exchange_authorization_code_for_google_tokens(
     code_verifier: str,
     redirect_uri: str,
 ) -> dict[str, Any]:
+    """使用授權碼與 PKCE verifier 向 Google 換取包含 id_token 的 token payload。"""
+
     if not settings.google_oauth_client_id or not settings.google_oauth_client_secret:
         raise GoogleOAuthConfigurationError("Google OAuth client credentials are not configured.")
-    if redirect_uri != settings.google_oauth_redirect_uri:
+    if redirect_uri not in settings.google_oauth_allowed_redirect_uri_list:
         raise GoogleOAuthTokenExchangeError("OAuth redirect URI does not match this environment.")
 
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -63,12 +65,16 @@ async def exchange_authorization_code_for_google_tokens(
 
 # 驗證 Google id_token 的簽章、來源、目標 client 與必要的使用者身分欄位。
 def verify_google_id_token(settings: Settings, *, google_id_token: str) -> dict[str, Any]:
+    """驗證 Google id_token 並回傳已確認過的 identity claims。"""
+
     try:
         claims = id_token.verify_oauth2_token(
             google_id_token,
             requests.Request(),
             settings.google_oauth_client_id,
         )
+
+    
     except ValueError as error:
         raise GoogleOAuthIdentityError("Google id_token could not be verified.") from error
 

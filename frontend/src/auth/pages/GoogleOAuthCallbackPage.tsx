@@ -61,6 +61,7 @@ export function GoogleOAuthCallbackPage(props: {
         setStatusMessage('Signed in. Redirecting...')
         navigate('/', { replace: true })
       } catch {
+        // TODO: 依 400、401、503 等狀態碼顯示更明確且不洩漏敏感資訊的登入錯誤訊息。
         setFailureMessage('Google sign-in could not be completed. Please try again.')
         clearStoredGoogleOAuthRequest()
       }

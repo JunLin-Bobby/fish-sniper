@@ -5,6 +5,7 @@ import { GoogleOAuthCallbackPage } from '../auth/pages/GoogleOAuthCallbackPage.t
 import { SignInPage } from '../auth/pages/SignInPage.tsx'
 import { DashboardPage } from '../dashboard/pages/DashboardPage.tsx'
 
+// 依 FishSniper access token 是否存在，切換登入流程與 protected dashboard。
 export function AppRoutes(props: { apiBaseUrl: string; authSession: AuthSession }) {
   if (!props.authSession.accessToken) {
     return (
@@ -25,7 +26,15 @@ export function AppRoutes(props: { apiBaseUrl: string; authSession: AuthSession 
 
   return (
     <Routes>
-      <Route path="*" element={<DashboardPage onSignOut={props.authSession.signOut} />} />
+      <Route
+        path="*"
+        element={
+          <DashboardPage
+            apiBaseUrl={props.apiBaseUrl}
+            onSignOut={props.authSession.signOut}
+          />
+        }
+      />
     </Routes>
   )
 }

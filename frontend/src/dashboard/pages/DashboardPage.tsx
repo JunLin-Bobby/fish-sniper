@@ -1,6 +1,7 @@
 import { BiteCurvePanel, TacticalMapPreview } from '../components/TacticalMapPreview.tsx'
 import { TacticalShell } from '../components/TacticalShell.tsx'
 import { SignOutButton } from '../../auth/components/SignOutButton.tsx'
+import { useCurrentUser } from '../../users/hooks/useCurrentUser.ts'
 
 const catchTargets = [
   ['A', 'Largemouth bass', 'Structure ambush pattern.', '72%'],
@@ -20,6 +21,7 @@ const recentLogs = [
   ['Jun 29', 'Point dropoff', '1 bass · deep crank · high sun', 'Older'],
 ]
 
+// 顯示排名、推薦或魚種機率的共用資訊列。
 function RankRow(props: {
   marker: string
   title: string
@@ -40,9 +42,20 @@ function RankRow(props: {
   )
 }
 
-export function DashboardPage(props: { onSignOut: () => void }) {
+// 載入已驗證的使用者資料，並呈現目前的 dashboard rebuild baseline。
+export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void }) {
+  const currentUser = useCurrentUser(props.apiBaseUrl, props.onSignOut)
+  const sessionLabel = currentUser.isLoading
+    ? 'Validating session...'
+    : currentUser.user
+      ? `Signed in · ${currentUser.user.email}`
+      : (currentUser.errorMessage ?? 'Session unavailable')
+
   return (
-    <TacticalShell actions={<SignOutButton onSignOut={props.onSignOut} />}>
+    <TacticalShell
+      actions={<SignOutButton onSignOut={props.onSignOut} />}
+      sessionLabel={sessionLabel}
+    >
       <div className="mb-5 grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">

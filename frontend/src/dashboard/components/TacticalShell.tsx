@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react'
 
-export function TacticalShell(props: { children: ReactNode; actions?: ReactNode }) {
+// 提供 dashboard 共用導覽、session 狀態與主要內容版面。
+export function TacticalShell(props: {
+  children: ReactNode
+  actions?: ReactNode
+  sessionLabel?: string
+}) {
   const navItems = ['Forecast', 'Map', 'Logs', 'Report']
   const railItems = [
     ['FX', 'Forecast'],
@@ -50,7 +55,7 @@ export function TacticalShell(props: { children: ReactNode; actions?: ReactNode 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex items-center gap-2 whitespace-nowrap text-sm text-[var(--fs-muted)]">
               <span className="h-2.5 w-2.5 rounded-full bg-[var(--fs-green)] shadow-[0_0_18px_rgba(61,255,138,0.85)]" />
-              Session armed · Dev auth
+              {props.sessionLabel ?? 'Session armed'}
             </div>
             {props.actions}
           </div>
