@@ -1,25 +1,29 @@
+import { useTranslation } from 'react-i18next'
+
+// 顯示目前仍為示意資料的咬鉤趨勢與天氣指標。
 export function BiteCurvePanel() {
+  const { t } = useTranslation()
   const stats = [
-    ['Pressure', '1017', 'hPa rising slowly'],
-    ['Wind', '3.8', 'm/s NE bank'],
-    ['Water', '1.7m', 'target depth'],
+    [t('weatherPreview.pressure'), '1017', t('weatherPreview.pressureNote')],
+    [t('weatherPreview.wind'), '3.8', t('weatherPreview.windNote')],
+    [t('weatherPreview.water'), '1.7m', t('weatherPreview.waterNote')],
   ]
 
   return (
     <section
       className="grid min-h-[270px] gap-[18px] rounded-[18px] border border-[var(--fs-line)] bg-[var(--fs-panel)] p-[18px] shadow-[inset_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[18px] lg:grid-cols-[1fr_210px]"
-      aria-label="Weather graph"
+      aria-label={t('weatherPreview.graphLabel')}
     >
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-              01 · Air / pressure / activity
+              {t('weatherPreview.section')}
             </p>
-            <h2 className="mt-1 text-[17px] font-semibold">Today's bite curve</h2>
+            <h2 className="mt-1 text-[17px] font-semibold">{t('weatherPreview.title')}</h2>
           </div>
           <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-[var(--fs-green-soft)]">
-            Prime window · 06:10-09:00
+            {t('weatherPreview.primeWindow')}
           </span>
         </div>
 
@@ -30,7 +34,7 @@ export function BiteCurvePanel() {
             <span>12:00</span>
             <span>18:00</span>
           </div>
-          <svg viewBox="0 0 720 220" role="img" aria-label="Bite prediction line chart">
+          <svg viewBox="0 0 720 220" role="img" aria-label={t('weatherPreview.chartLabel')}>
             <path
               d="M0 168 C80 158 92 116 154 122 C222 128 222 58 292 68 C366 80 390 132 458 118 C540 101 565 136 626 116 C674 101 690 82 720 72"
               fill="none"
@@ -74,7 +78,9 @@ export function BiteCurvePanel() {
   )
 }
 
+// 顯示目前仍為示意資料的地圖與建議釣點。
 export function TacticalMapPreview() {
+  const { t } = useTranslation()
   const pins = [
     ['1', 'left-[31%] top-[44%] border-[rgba(61,255,138,0.52)] text-[var(--fs-green)]'],
     ['2', 'right-[24%] top-[33%] border-[rgba(56,214,255,0.52)] text-[var(--fs-cyan)]'],
@@ -87,13 +93,13 @@ export function TacticalMapPreview() {
   return (
     <article
       className="relative min-h-[318px] overflow-hidden rounded-[18px] border border-[var(--fs-line)] bg-[#04111c] shadow-[inset_0_1px_rgba(255,255,255,0.04)]"
-      aria-label="Recommended map positions"
+      aria-label={t('mapPreview.positionsLabel')}
     >
       <div className="relative z-10 p-[18px]">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-          03 · Hot zones
+          {t('mapPreview.section')}
         </p>
-        <h2 className="mt-1 text-[17px] font-semibold">Map-first recommendation</h2>
+        <h2 className="mt-1 text-[17px] font-semibold">{t('mapPreview.title')}</h2>
       </div>
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_28%,rgba(56,214,255,0.18),transparent_13rem),linear-gradient(135deg,rgba(5,150,105,0.17),transparent_48%)]" />
@@ -109,9 +115,9 @@ export function TacticalMapPreview() {
       ))}
 
       <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fs-muted)]">
-        <span>North reed pocket · 1.2-1.8m</span>
+        <span>{t('mapPreview.northReeds')}</span>
         <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-[var(--fs-green-soft)]">
-          Best cast line
+          {t('mapPreview.bestCastLine')}
         </span>
       </div>
     </article>

@@ -1,5 +1,8 @@
+import { useTranslation } from 'react-i18next'
+
 // Google 登入操作按鈕，點擊後交由登入頁啟動 OAuth 流程。
 export function GoogleSignInButton(props: { disabled?: boolean; onSignIn: () => void | Promise<void> }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
@@ -7,7 +10,7 @@ export function GoogleSignInButton(props: { disabled?: boolean; onSignIn: () => 
       disabled={props.disabled}
       onClick={() => void props.onSignIn()}
     >
-      Continue with Google
+      {t('auth.continueWithGoogle')}
     </button>
   )
 }

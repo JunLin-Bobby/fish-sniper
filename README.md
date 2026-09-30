@@ -49,12 +49,32 @@ frontend/
     auth/           Sign-in pages, auth UI, hooks, OAuth lib, auth API calls
     api/            Generic JSON HTTP client and common API envelope types
     config/         Public runtime environment readers
+    i18n/           English/Traditional Chinese strings and language switcher
     users/          Current-user API and session validation hook
     dashboard/      Rebuilt tactical dashboard baseline
 
 supabase/
   migrations/       Database schema migrations
 ```
+
+---
+
+## Frontend languages
+
+The UI supports English (`en`) and Traditional Chinese (`zh-TW`) with i18next and
+react-i18next. `frontend/src/i18n/translations.ts` contains matching translation keys
+for both languages; components display them with `useTranslation()` and `t('key')`.
+For dynamic text, pass variables such as `t('dashboard.signedInAs', { email })`.
+
+The first visit follows the browser language (`zh*` selects Traditional Chinese;
+otherwise English). A manual selection is saved as `fishsniper.language` in browser
+`localStorage` and survives reloads in that browser. This is a frontend preference only:
+it does not change Google OAuth, the JWT, Supabase user data, or API response language.
+
+If an existing Docker development container uses the persistent `frontend_node_modules`
+volume, install the new packages into that volume with
+`docker compose -f docker-compose-dev.yaml run --rm --no-deps frontend npm ci` before
+restarting the frontend.
 
 ---
 

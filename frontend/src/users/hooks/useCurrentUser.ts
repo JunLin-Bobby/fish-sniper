@@ -7,7 +7,7 @@ import type { CurrentUser } from '../api/userTypes.ts'
 interface CurrentUserState {
   user: CurrentUser | null
   isLoading: boolean
-  errorMessage: string | null
+  hasError: boolean
 }
 
 // 在 dashboard 啟動時載入 /me，並在 token 失效時通知 auth session 登出。
@@ -15,7 +15,7 @@ export function useCurrentUser(apiBaseUrl: string, onUnauthorized: () => void): 
   const [state, setState] = useState<CurrentUserState>({
     user: null,
     isLoading: true,
-    errorMessage: null,
+    hasError: false,
   })
 
   useEffect(() => {
@@ -26,7 +26,7 @@ export function useCurrentUser(apiBaseUrl: string, onUnauthorized: () => void): 
       try {
         const user = await fetchCurrentUser(apiBaseUrl)
         if (!isCancelled) {
-          setState({ user, isLoading: false, errorMessage: null })
+          setState({ user, isLoading: false, hasError: false })
         }
       } catch (error) {
         if (error instanceof HttpStatusError && error.status === 401) {
@@ -37,7 +37,7 @@ export function useCurrentUser(apiBaseUrl: string, onUnauthorized: () => void): 
           setState({
             user: null,
             isLoading: false,
-            errorMessage: 'User profile is temporarily unavailable.',
+            hasError: true,
           })
         }
       }

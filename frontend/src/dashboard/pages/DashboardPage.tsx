@@ -2,24 +2,7 @@ import { BiteCurvePanel, TacticalMapPreview } from '../components/TacticalMapPre
 import { TacticalShell } from '../components/TacticalShell.tsx'
 import { SignOutButton } from '../../auth/components/SignOutButton.tsx'
 import { useCurrentUser } from '../../users/hooks/useCurrentUser.ts'
-
-const catchTargets = [
-  ['A', 'Largemouth bass', 'Structure ambush pattern.', '72%'],
-  ['B', 'Smallmouth bass', 'Secondary rocky point.', '18%'],
-  ['C', 'Yellow perch', 'Bycatch near grass edge.', '10%'],
-]
-
-const recommendations = [
-  ['01', 'Spinnerbait near reed edge', 'Slow roll with 2-3 pause beats.', 'High'],
-  ['02', 'Weightless worm over flats', 'Work the shadow line after sunrise.', 'Med'],
-  ['03', 'Jig on outside drop', 'Use if wind pushes bait deeper.', 'Med'],
-]
-
-const recentLogs = [
-  ['Jul 08', 'West dock pocket', '2 bass · green pumpkin jig · cloudy', 'Matched'],
-  ['Jul 05', 'North reeds', '4 bass · spinnerbait · wind NE', 'RAG'],
-  ['Jun 29', 'Point dropoff', '1 bass · deep crank · high sun', 'Older'],
-]
+import { useTranslation } from 'react-i18next'
 
 // 顯示排名、推薦或魚種機率的共用資訊列。
 function RankRow(props: {
@@ -44,12 +27,28 @@ function RankRow(props: {
 
 // 載入已驗證的使用者資料，並呈現目前的 dashboard rebuild baseline。
 export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void }) {
+  const { t } = useTranslation()
   const currentUser = useCurrentUser(props.apiBaseUrl, props.onSignOut)
+  const catchTargets = [
+    ['A', t('dashboard.largemouthBass'), t('dashboard.largemouthNote'), '72%'],
+    ['B', t('dashboard.smallmouthBass'), t('dashboard.smallmouthNote'), '18%'],
+    ['C', t('dashboard.yellowPerch'), t('dashboard.yellowPerchNote'), '10%'],
+  ]
+  const recommendations = [
+    ['01', t('dashboard.spinnerbait'), t('dashboard.spinnerbaitNote'), t('dashboard.high')],
+    ['02', t('dashboard.weightlessWorm'), t('dashboard.weightlessWormNote'), t('dashboard.medium')],
+    ['03', t('dashboard.jig'), t('dashboard.jigNote'), t('dashboard.medium')],
+  ]
+  const recentLogs = [
+    { id: '1', date: t('dashboard.log1Date'), title: t('dashboard.log1Place'), description: t('dashboard.log1Note'), state: 'matched' },
+    { id: '2', date: t('dashboard.log2Date'), title: t('dashboard.log2Place'), description: t('dashboard.log2Note'), state: 'rag' },
+    { id: '3', date: t('dashboard.log3Date'), title: t('dashboard.log3Place'), description: t('dashboard.log3Note'), state: 'older' },
+  ] as const
   const sessionLabel = currentUser.isLoading
-    ? 'Validating session...'
+    ? t('dashboard.validatingSession')
     : currentUser.user
-      ? `Signed in · ${currentUser.user.email}`
-      : (currentUser.errorMessage ?? 'Session unavailable')
+      ? t('dashboard.signedInAs', { email: currentUser.user.email })
+      : currentUser.hasError ? t('dashboard.userUnavailable') : t('dashboard.sessionUnavailable')
 
   return (
     <TacticalShell
@@ -59,14 +58,13 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
       <div className="mb-5 grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-            Prediction graph · tactical forecast
+            {t('dashboard.forecastEyebrow')}
           </p>
           <h1 className="mt-2 max-w-[780px] text-[clamp(2rem,4.2vw,3.625rem)] font-extrabold leading-[0.96]">
-            Choose the window, spot, and lure before the bite moves.
+            {t('dashboard.headline')}
           </h1>
           <p className="mt-4 max-w-[660px] text-[15px] leading-relaxed text-[var(--fs-muted)]">
-            Pressure rhythm on top, prediction and map in the center, catching logs as the
-            feedback loop below. This is the rebuild baseline before Google auth returns.
+            {t('dashboard.description')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -74,13 +72,13 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
             type="button"
             className="min-h-[42px] cursor-pointer rounded-xl border border-white/15 bg-white/[0.05] px-4 text-sm font-bold text-slate-100 transition-colors duration-200 hover:border-white/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-green)]"
           >
-            Tune inputs
+            {t('dashboard.tuneInputs')}
           </button>
           <button
             type="button"
             className="min-h-[42px] cursor-pointer rounded-xl border border-[rgba(61,255,138,0.52)] bg-[var(--fs-green)] px-4 text-sm font-bold text-[#031007] shadow-[0_0_36px_rgba(61,255,138,0.28)] transition-opacity duration-200 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-green)]"
           >
-            Generate plan
+            {t('dashboard.generatePlan')}
           </button>
         </div>
       </div>
@@ -94,19 +92,19 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-                    02 · Prediction
+                    {t('dashboard.predictionSection')}
                   </p>
-                  <h2 className="mt-1 text-[17px] font-semibold">Mission score</h2>
+                  <h2 className="mt-1 text-[17px] font-semibold">{t('dashboard.missionScore')}</h2>
                 </div>
                 <span className="inline-flex min-h-7 items-center rounded-full border border-white/10 bg-black/30 px-3 text-xs font-bold text-[var(--fs-muted)]">
-                  Largemouth
+                  {t('dashboard.largemouth')}
                 </span>
               </div>
 
               <div className="grid min-h-[130px] place-items-center rounded-2xl border border-[rgba(61,255,138,0.2)] bg-[radial-gradient(circle,rgba(61,255,138,0.16),rgba(0,0,0,0.16)_62%)] text-center">
                 <div>
                   <strong className="block text-[62px] leading-none">87</strong>
-                  <span className="text-sm text-[var(--fs-muted)]">/100 bite confidence</span>
+                  <span className="text-sm text-[var(--fs-muted)]">{t('dashboard.biteConfidence')}</span>
                 </div>
               </div>
 
@@ -132,12 +130,12 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-                  Species rank
+                  {t('dashboard.speciesRank')}
                 </p>
-                <h2 className="mt-1 text-[17px] font-semibold">Likely catches</h2>
+                <h2 className="mt-1 text-[17px] font-semibold">{t('dashboard.likelyCatches')}</h2>
               </div>
               <span className="inline-flex min-h-7 items-center rounded-full border border-white/10 bg-black/30 px-3 text-xs font-bold text-[var(--fs-muted)]">
-                3 targets
+                {t('dashboard.targetCount')}
               </span>
             </div>
             <div className="grid gap-2.5">
@@ -157,21 +155,21 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-                  Catching logs
+                  {t('dashboard.catchingLogs')}
                 </p>
-                <h2 className="mt-1 text-[17px] font-semibold">Feedback loop</h2>
+                <h2 className="mt-1 text-[17px] font-semibold">{t('dashboard.feedbackLoop')}</h2>
               </div>
               <button
                 type="button"
                 className="min-h-[42px] cursor-pointer rounded-xl border border-[rgba(61,255,138,0.52)] bg-[var(--fs-green)] px-4 text-sm font-bold text-[#031007] shadow-[0_0_36px_rgba(61,255,138,0.28)] transition-opacity duration-200 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-green)]"
               >
-                Add log
+                {t('dashboard.addLog')}
               </button>
             </div>
             <div className="grid gap-2.5">
-              {recentLogs.map(([date, title, description, state]) => (
+              {recentLogs.map(({ id, date, title, description, state }) => (
                 <div
-                  key={`${date}-${title}`}
+                  key={id}
                   className="grid gap-3 rounded-[14px] border border-white/10 bg-white/[0.035] p-3 sm:grid-cols-[76px_1fr_auto] sm:items-center"
                 >
                   <span className="text-sm font-extrabold text-[var(--fs-green-soft)]">{date}</span>
@@ -181,12 +179,12 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
                   </div>
                   <span
                     className={`inline-flex min-h-7 w-fit items-center rounded-full border px-3 text-xs font-bold ${
-                      state === 'Matched'
+                      state === 'matched'
                         ? 'border-[rgba(61,255,138,0.36)] text-[var(--fs-green-soft)]'
                         : 'border-white/10 text-[var(--fs-muted)]'
                     }`}
                   >
-                    {state}
+                    {t(`dashboard.${state}`)}
                   </span>
                 </div>
               ))}

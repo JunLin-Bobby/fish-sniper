@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { LanguageSwitcher } from '../../i18n/LanguageSwitcher.tsx'
 
 // 提供 dashboard 共用導覽、session 狀態與主要內容版面。
 export function TacticalShell(props: {
@@ -6,19 +9,20 @@ export function TacticalShell(props: {
   actions?: ReactNode
   sessionLabel?: string
 }) {
-  const navItems = ['Forecast', 'Map', 'Logs', 'Report']
+  const { t } = useTranslation()
+  const navItems = [t('dashboard.forecast'), t('dashboard.map'), t('dashboard.logs'), t('dashboard.report')]
   const railItems = [
-    ['FX', 'Forecast'],
-    ['MP', 'Map'],
-    ['LG', 'Logs'],
-    ['ST', 'Settings'],
+    ['FX', t('dashboard.forecast')],
+    ['MP', t('dashboard.map')],
+    ['LG', t('dashboard.logs')],
+    ['ST', t('dashboard.settings')],
   ]
 
   return (
     <main className="relative mx-auto min-h-dvh w-full max-w-[1440px] p-3 text-[var(--fs-ink)] sm:p-5">
       <section
         className="min-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-[1.5rem] border border-[var(--fs-line)] bg-[rgba(2,6,23,0.72)] shadow-[0_32px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl sm:min-h-[calc(100dvh-2.5rem)]"
-        aria-label="FishSniper tactical dashboard"
+        aria-label={t('dashboard.tacticalDashboard')}
       >
         <header className="flex min-h-[72px] flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-[rgba(2,6,23,0.55)] px-5 py-4">
           <div className="flex min-w-48 items-center gap-3">
@@ -28,14 +32,14 @@ export function TacticalShell(props: {
             <div>
               <strong className="block leading-tight">FishSniper</strong>
               <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
-                Control Room
+                {t('dashboard.controlRoom')}
               </span>
             </div>
           </div>
 
           <nav
             className="hidden items-center gap-1 rounded-full border border-white/10 bg-black/25 p-1 md:flex"
-            aria-label="Dashboard sections"
+            aria-label={t('dashboard.sections')}
           >
             {navItems.map((item, index) => (
               <button
@@ -53,9 +57,10 @@ export function TacticalShell(props: {
           </nav>
 
           <div className="flex flex-wrap items-center justify-end gap-3">
+            <LanguageSwitcher />
             <div className="flex items-center gap-2 whitespace-nowrap text-sm text-[var(--fs-muted)]">
               <span className="h-2.5 w-2.5 rounded-full bg-[var(--fs-green)] shadow-[0_0_18px_rgba(61,255,138,0.85)]" />
-              {props.sessionLabel ?? 'Session armed'}
+              {props.sessionLabel ?? t('dashboard.sessionArmed')}
             </div>
             {props.actions}
           </div>
@@ -64,7 +69,7 @@ export function TacticalShell(props: {
         <div className="grid min-h-[calc(100dvh-94px)] md:grid-cols-[82px_minmax(0,1fr)]">
           <aside
             className="hidden flex-col items-center gap-3 border-r border-white/10 bg-black/20 px-3 py-5 md:flex"
-            aria-label="Primary actions"
+            aria-label={t('dashboard.primaryActions')}
           >
             {railItems.map(([label, name], index) => (
               <button
