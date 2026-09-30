@@ -28,20 +28,20 @@ export function SignInPage() {
   }
 
   return (
-    <main className="relative grid min-h-dvh place-items-center px-4 py-10 text-[var(--fs-ink)]">
-      <section className="w-full max-w-md rounded-[1.5rem] border border-[var(--fs-line)] bg-[rgba(2,6,23,0.72)] p-6 shadow-[0_32px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl sm:p-8">
+    <main className="relative grid min-h-dvh place-items-center px-4 py-10 text-(--fs-ink)">
+      <section className="w-full max-w-md rounded-3xl border border-(--fs-line) bg-[rgba(2,6,23,0.72)] p-6 shadow-[0_32px_90px_rgba(0,0,0,0.46)] backdrop-blur-2xl sm:p-8">
         <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
         <div className="mb-6 text-center">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-[14px] border border-[rgba(61,255,138,0.46)] bg-[linear-gradient(145deg,rgba(61,255,138,0.2),rgba(56,214,255,0.08))] text-sm font-extrabold text-[var(--fs-green)]">
+          <div className="mx-auto grid h-12 w-12 place-items-center rounded-[14px] border border-[rgba(61,255,138,0.46)] bg-[linear-gradient(145deg,rgba(61,255,138,0.2),rgba(56,214,255,0.08))] text-sm font-extrabold text-(--fs-green)">
             FS
           </div>
-          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[0.16em] text-(--fs-faint)">
             FishSniper · {t('auth.tacticalCommand')}
           </p>
-          <h1 className="mt-2 text-3xl font-extrabold text-[var(--fs-green-soft)]">
+          <h1 className="mt-2 text-3xl font-extrabold text-(--fs-green-soft)">
             FishSniper
           </h1>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--fs-muted)]">
+          <p className="mt-3 text-sm leading-relaxed text-(--fs-muted)">
             {t('auth.intro')}
           </p>
         </div>

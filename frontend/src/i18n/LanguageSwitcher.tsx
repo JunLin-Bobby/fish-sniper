@@ -18,10 +18,10 @@ export function LanguageSwitcher() {
           key={code}
           type="button"
           aria-pressed={i18n.resolvedLanguage === code}
-          className={`min-h-8 cursor-pointer rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--fs-green)] ${
+          className={`min-h-8 cursor-pointer rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-(--fs-green) ${
             i18n.resolvedLanguage === code
-              ? 'bg-[rgba(61,255,138,0.18)] text-[var(--fs-green-soft)]'
-              : 'text-[var(--fs-muted)] hover:text-slate-100'
+              ? 'bg-[rgba(61,255,138,0.18)] text-(--fs-green-soft)'
+              : 'text-(--fs-muted) hover:text-slate-100'
           }`}
           onClick={() => void changeAppLanguage(code)}
         >

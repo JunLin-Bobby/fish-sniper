@@ -74,22 +74,22 @@ export function GoogleOAuthCallbackPage(props: {
   }, [navigate, props])
 
   return (
-    <main className="relative grid min-h-dvh place-items-center px-4 py-10 text-[var(--fs-ink)]">
-      <section className="w-full max-w-md rounded-[1.5rem] border border-[var(--fs-line)] bg-black/40 p-6 text-center shadow-[0_32px_90px_rgba(0,0,0,0.46)] backdrop-blur-md sm:p-8">
+    <main className="relative grid min-h-dvh place-items-center px-4 py-10 text-(--fs-ink)">
+      <section className="w-full max-w-md rounded-3xl border border-(--fs-line) bg-black/40 p-6 text-center shadow-[0_32px_90px_rgba(0,0,0,0.46)] backdrop-blur-md sm:p-8">
         <div className="mb-5 flex justify-end"><LanguageSwitcher /></div>
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--fs-faint)">
           FishSniper · Google OAuth
         </p>
-        <h1 className="mt-2 text-3xl font-extrabold text-[var(--fs-green-soft)]">
+        <h1 className="mt-2 text-3xl font-extrabold text-(--fs-green-soft)">
           {failure ? t('auth.signInPaused') : t('auth.authenticating')}
         </h1>
-        <p className="mt-3 text-sm leading-relaxed text-[var(--fs-muted)]">
+        <p className="mt-3 text-sm leading-relaxed text-(--fs-muted)">
           {failure ? t(failure.key, { code: failure.code }) : t(statusKey)}
         </p>
         {failure ? (
           <button
             type="button"
-            className="mt-6 w-full cursor-pointer rounded-xl border border-white/20 bg-white py-3.5 text-sm font-bold text-[#010409] transition-colors duration-200 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fs-green)]"
+            className="mt-6 w-full cursor-pointer rounded-xl border border-white/20 bg-white py-3.5 text-sm font-bold text-[#010409] transition-colors duration-200 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--fs-green)"
             onClick={() => navigate('/', { replace: true })}
           >
             {t('auth.returnToSignIn')}

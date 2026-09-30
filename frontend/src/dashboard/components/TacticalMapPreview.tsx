@@ -11,24 +11,24 @@ export function BiteCurvePanel() {
 
   return (
     <section
-      className="grid min-h-[270px] gap-[18px] rounded-[18px] border border-[var(--fs-line)] bg-[var(--fs-panel)] p-[18px] shadow-[inset_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[18px] lg:grid-cols-[1fr_210px]"
+      className="grid min-h-[270px] gap-[18px] rounded-[18px] border border-(--fs-line) bg-(--fs-panel) p-[18px] shadow-[inset_0_1px_rgba(255,255,255,0.04)] backdrop-blur-[18px] lg:grid-cols-[1fr_210px]"
       aria-label={t('weatherPreview.graphLabel')}
     >
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--fs-faint)">
               {t('weatherPreview.section')}
             </p>
             <h2 className="mt-1 text-[17px] font-semibold">{t('weatherPreview.title')}</h2>
           </div>
-          <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-[var(--fs-green-soft)]">
+          <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-(--fs-green-soft)">
             {t('weatherPreview.primeWindow')}
           </span>
         </div>
 
-        <div className="relative min-h-[220px] rounded-[14px] border border-white/[0.08] bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px),rgba(0,0,0,0.22)] bg-[length:100%_25%,16.666%_100%,auto]">
-          <div className="absolute inset-x-3.5 top-3 flex justify-between text-[11px] font-bold text-[var(--fs-faint)]">
+        <div className="relative min-h-[220px] rounded-[14px] border border-white/8 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px),rgba(0,0,0,0.22)] bg-size-[100%_25%,16.666%_100%,auto]">
+          <div className="absolute inset-x-3.5 top-3 flex justify-between text-[11px] font-bold text-(--fs-faint)">
             <span>00:00</span>
             <span>06:00</span>
             <span>12:00</span>
@@ -65,12 +65,12 @@ export function BiteCurvePanel() {
 
       <div className="grid gap-2.5 sm:grid-cols-3 lg:grid-cols-1">
         {stats.map(([label, value, note]) => (
-          <div key={label} className="rounded-[14px] border border-white/10 bg-white/[0.04] p-3">
-            <small className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
+          <div key={label} className="rounded-[14px] border border-white/10 bg-white/4 p-3">
+            <small className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--fs-faint)">
               {label}
             </small>
             <strong className="mt-2 block text-[28px] leading-none">{value}</strong>
-            <span className="mt-2 block text-xs leading-relaxed text-[var(--fs-muted)]">{note}</span>
+            <span className="mt-2 block text-xs leading-relaxed text-(--fs-muted)">{note}</span>
           </div>
         ))}
       </div>
@@ -82,21 +82,21 @@ export function BiteCurvePanel() {
 export function TacticalMapPreview() {
   const { t } = useTranslation()
   const pins = [
-    ['1', 'left-[31%] top-[44%] border-[rgba(61,255,138,0.52)] text-[var(--fs-green)]'],
-    ['2', 'right-[24%] top-[33%] border-[rgba(56,214,255,0.52)] text-[var(--fs-cyan)]'],
+    ['1', 'left-[31%] top-[44%] border-[rgba(61,255,138,0.52)] text-(--fs-green)'],
+    ['2', 'right-[24%] top-[33%] border-[rgba(56,214,255,0.52)] text-(--fs-cyan)'],
     [
       '3',
-      'bottom-[25%] right-[33%] border-[rgba(251,191,36,0.52)] text-[var(--fs-amber)]',
+      'bottom-[25%] right-[33%] border-[rgba(251,191,36,0.52)] text-(--fs-amber)',
     ],
   ]
 
   return (
     <article
-      className="relative min-h-[318px] overflow-hidden rounded-[18px] border border-[var(--fs-line)] bg-[#04111c] shadow-[inset_0_1px_rgba(255,255,255,0.04)]"
+      className="relative min-h-[318px] overflow-hidden rounded-[18px] border border-(--fs-line) bg-[#04111c] shadow-[inset_0_1px_rgba(255,255,255,0.04)]"
       aria-label={t('mapPreview.positionsLabel')}
     >
       <div className="relative z-10 p-[18px]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--fs-faint)]">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-(--fs-faint)">
           {t('mapPreview.section')}
         </p>
         <h2 className="mt-1 text-[17px] font-semibold">{t('mapPreview.title')}</h2>
@@ -114,9 +114,9 @@ export function TacticalMapPreview() {
         </span>
       ))}
 
-      <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--fs-muted)]">
+      <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center justify-between gap-3 text-xs text-(--fs-muted)">
         <span>{t('mapPreview.northReeds')}</span>
-        <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-[var(--fs-green-soft)]">
+        <span className="inline-flex min-h-7 items-center rounded-full border border-[rgba(61,255,138,0.36)] bg-black/30 px-3 text-xs font-bold text-(--fs-green-soft)">
           {t('mapPreview.bestCastLine')}
         </span>
       </div>
