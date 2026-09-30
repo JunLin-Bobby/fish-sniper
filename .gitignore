@@ -15,8 +15,10 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 
-# Private product docs
-docs/
+# macOS Finder metadata
+.DS_Store
+
+
 
 #understand anything
 .understand-anything/
