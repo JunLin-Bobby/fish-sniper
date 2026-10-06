@@ -60,7 +60,8 @@ class SupabaseRestClient:
             raise DatabaseUnavailableError("Supabase request could not be completed.") from error
 
         if response.status_code >= 400:
-            # TODO: 在後端記錄不含 secret 的 Supabase 狀態碼與錯誤類別，方便區分設定、schema 與服務故障。
+            # TODO: 在後端記錄不含 secret 的 Supabase 狀態碼與錯誤類別，
+            # 方便區分設定、schema 與服務故障。
             raise DatabaseUnavailableError(
                 f"Supabase request failed with HTTP {response.status_code}."
             )

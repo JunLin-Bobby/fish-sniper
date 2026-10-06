@@ -35,6 +35,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("SUPABASE_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY"),
     )
 
+    weather_request_timeout_seconds: float = 10.0
+    weather_cache_ttl_seconds: int = 1800
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     @property

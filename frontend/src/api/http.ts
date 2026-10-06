@@ -43,9 +43,11 @@ async function parseJsonResponse<TResponse>(response: Response): Promise<TRespon
 export async function getJson<TResponse>(options: {
   apiBaseUrl: string
   path: string
+  signal?: AbortSignal
 }): Promise<TResponse> {
   const response = await fetch(`${options.apiBaseUrl}${options.path}`, {
     headers: buildRequestHeaders(),
+    signal: options.signal,
   })
   return parseJsonResponse<TResponse>(response)
 }

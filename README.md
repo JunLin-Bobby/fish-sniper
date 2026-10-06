@@ -2,8 +2,8 @@
 
 ![FishSniper](images/logo.png)
 
-> Auth-first rebuild in progress. Phase 0 now connects Google identity to an internal
-> Supabase user and protects application APIs with a FishSniper JWT.
+> Auth-first rebuild in progress. Google identity is linked to an internal Supabase
+> user, and the dashboard now includes hourly weather for freshwater fishing spots.
 
 Live demo: https://fish-sniper.pages.dev | Backend: Railway | Frontend: Cloudflare Pages
 
@@ -16,6 +16,8 @@ Live demo: https://fish-sniper.pages.dev | Backend: Railway | Frontend: Cloudfla
 3. Backend upserts a `users` row by `google_sub` and signs a FishSniper JWT whose `sub` is the internal user UUID.
 4. Protected routes validate `Authorization: Bearer <token>` and load the current user from Supabase.
 5. The signed-in dashboard calls `GET /api/v1/me` to validate the saved session.
+6. One Open-Meteo request supplies the daily weather summary, air temperature and
+   pressure charts, and an hourly table with rain probability, wind and gusts.
 
 ---
 
@@ -23,7 +25,7 @@ Live demo: https://fish-sniper.pages.dev | Backend: Railway | Frontend: Cloudfla
 
 | Layer | Choices |
 |-------|---------|
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS 4, React Router, Recharts |
 | Backend | Python 3.11, FastAPI, Pydantic v2 |
 | Data | Supabase Postgres + Data API (backend-only secret key) |
 | Auth | Google OAuth 2.0 + PKCE (server-side token exchange + JWKS) |
@@ -41,6 +43,7 @@ backend/
     auth/           Google OAuth exchange, JWT, auth schemas and routes
     db/             Supabase REST client, users repository, DB dependencies
     users/          Protected current-user API
+    weather/        Hourly weather, location search, interchangeable cache
   tests/            pytest coverage for health, rate limiting, Google OAuth
 
 frontend/
@@ -52,6 +55,7 @@ frontend/
     i18n/           English/Traditional Chinese strings and language switcher
     users/          Current-user API and session validation hook
     dashboard/      Rebuilt tactical dashboard baseline
+    weather/        Location picker, hourly weather loading and area charts
 
 supabase/
   migrations/       Database schema migrations
@@ -75,6 +79,37 @@ If an existing Docker development container uses the persistent `frontend_node_m
 volume, install the new packages into that volume with
 `docker compose -f docker-compose-dev.yaml run --rm --no-deps frontend npm ci` before
 restarting the frontend.
+
+## Weather forecasts
+
+After signing in, allow browser location access or search for a place manually. The
+dashboard offers today and the next six Taiwan-calendar dates. Weather comes from
+[Open-Meteo](https://open-meteo.com/) and contains hourly forecast values, not live
+observations. Air temperature and sea-level pressure are shown in two vertically
+stacked area charts. Air temperature uses a warm orange line and a zero-based Y axis
+(which expands below zero for sub-zero forecasts); pressure uses a cyan line and
+an automatic Y-axis range. Both curves have a translucent matching fill.
+Charts use 24-hour time labels every two hours on wide screens and every four hours
+on narrow screens; all hourly points remain available in tooltips. Four summary cards
+show the day's most severe forecast condition, temperature range, highest hourly
+rain probability and maximum wind/gust speeds. The horizontally scrollable hourly
+table includes weather icons, air temperature, rain probability, wind direction,
+wind speed, gusts and pressure. Weather names support English and Traditional Chinese;
+clear-weather icons reflect day/night, missing values display a dash, and wind speeds
+are normalized to m/s. Daily and hourly fields are fetched together, cached as one
+response, and shared by all three UI sections through one loading hook.
+The prediction, map, and catch-log panels remain static previews.
+
+Both weather APIs require a FishSniper Bearer token:
+
+- `GET /api/v1/weather/hourly?lat=25.15&lon=121.79&date=YYYY-MM-DD`
+- `GET /api/v1/weather/locations/search?q=Keelung&language=en`
+
+The backend uses an in-process TTL cache behind a replaceable interface. Weather
+results expire after 30 minutes by default. A backend restart clears the cache. JWT expiry and forecast
+cache expiry are independent. Set the optional timeouts and TTLs in `backend/.env`.
+Open-Meteo's free API is for non-commercial use; review its
+[terms](https://open-meteo.com/en/terms) before commercial deployment.
 
 ---
 
