@@ -64,7 +64,7 @@ export function LocationPicker(props: {
         <button
           type="button"
           onClick={props.onUseCurrentLocation}
-          className="min-h-9 cursor-pointer rounded-lg border border-white/15 px-3 text-xs font-semibold hover:border-white/30"
+          className="min-h-11 cursor-pointer rounded-lg border border-white/15 px-3 text-xs font-semibold hover:border-white/30"
         >
           {t('liveWeather.useCurrentLocation')}
         </button>
@@ -79,12 +79,12 @@ export function LocationPicker(props: {
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t('liveWeather.searchPlaceholder')}
           aria-label={t('liveWeather.searchPlaceholder')}
-          className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-sm text-white outline-none focus:border-(--fs-green)"
+          className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/25 px-3 py-2 text-base text-white outline-none focus:border-(--fs-green) sm:text-sm"
         />
         <button
           type="submit"
           disabled={isSearching || query.trim().length < 2}
-          className="min-h-10 rounded-lg bg-(--fs-green) px-4 text-sm font-bold text-[#031007] disabled:opacity-50"
+          className="min-h-11 rounded-lg bg-(--fs-green) px-4 text-sm font-bold text-[#031007] disabled:opacity-50"
         >
           {isSearching ? t('liveWeather.searching') : t('liveWeather.search')}
         </button>

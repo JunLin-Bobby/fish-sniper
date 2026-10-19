@@ -7,8 +7,8 @@ const languageOptions: { code: AppLanguage; label: string }[] = [
   { code: 'en', label: 'English' },
 ]
 
-// 共用語言切換鈕，登入頁與儀表板會同步顯示目前選擇。
-export function LanguageSwitcher() {
+// 共用語言切換鈕；首頁可使用短標籤與較大的觸控範圍，登入頁維持原版樣式。
+export function LanguageSwitcher(props: { compact?: boolean } = {}) {
   const { t, i18n } = useTranslation()
 
   return (
@@ -17,15 +17,16 @@ export function LanguageSwitcher() {
         <button
           key={code}
           type="button"
+          aria-label={label}
           aria-pressed={i18n.resolvedLanguage === code}
-          className={`min-h-8 cursor-pointer rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-(--fs-green) ${
+          className={`${props.compact ? 'min-h-11' : 'min-h-8'} cursor-pointer rounded-md px-2.5 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-(--fs-green) ${
             i18n.resolvedLanguage === code
               ? 'bg-[rgba(61,255,138,0.18)] text-(--fs-green-soft)'
               : 'text-(--fs-muted) hover:text-slate-100'
           }`}
           onClick={() => void changeAppLanguage(code)}
         >
-          {label}
+          {props.compact ? code === 'zh-TW' ? '中' : 'EN' : label}
         </button>
       ))}
     </div>

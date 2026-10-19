@@ -86,19 +86,28 @@ After signing in, allow browser location access or search for a place manually. 
 dashboard offers today and the next six Taiwan-calendar dates. Weather comes from
 [Open-Meteo](https://open-meteo.com/) and contains hourly forecast values, not live
 observations. Air temperature and sea-level pressure are shown in two vertically
-stacked area charts. Air temperature uses a warm orange line and a zero-based Y axis
+stacked area charts under a collapsed-by-default trend disclosure. Opening charts
+does not fetch weather again. Air temperature uses a warm orange line and a zero-based Y axis
 (which expands below zero for sub-zero forecasts); pressure uses a cyan line and
 an automatic Y-axis range. Both curves have a translucent matching fill.
-Charts use 24-hour time labels every two hours on wide screens and every four hours
-on narrow screens; all hourly points remain available in tooltips. Four summary cards
+Charts use 24-hour time labels every two hours in wide containers and every four hours
+in narrow containers; all hourly points remain available in tooltips. Four summary cards
 show the day's most severe forecast condition, temperature range, highest hourly
 rain probability and maximum wind/gust speeds. The horizontally scrollable hourly
-table includes weather icons, air temperature, rain probability, wind direction,
-wind speed, gusts and pressure. Weather names support English and Traditional Chinese;
+table defaults to weather icons, air temperature, rain probability and wind speed.
+A "more metrics" button reveals wind direction, gusts and pressure using the same
+response. Weather names support English and Traditional Chinese;
 clear-weather icons reflect day/night, missing values display a dash, and wind speeds
 are normalized to m/s. Daily and hourly fields are fetched together, cached as one
 response, and shared by all three UI sections through one loading hook.
-The prediction, map, and catch-log panels remain static previews.
+The dashboard owns the selected location, date and forecast state. Desktop puts
+weather and the larger water/spot preview on the left and strategy on the right;
+mobile stacks summary, strategy, weather details and map. Recent logs sit below.
+Desktop navigation sticks to the top, and mobile navigation stays at the bottom
+with safe-area spacing. Overview, spots, strategy and logs navigate to real homepage
+sections, not separate feature pages. Account details and sign-out are in the header
+account menu. The AI, map and log panels are clearly labelled previews with unavailable
+actions disabled; they do not display invented scores or catch probabilities.
 
 Both weather APIs require a FishSniper Bearer token:
 

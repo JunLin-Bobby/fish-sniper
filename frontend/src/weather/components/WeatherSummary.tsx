@@ -23,13 +23,13 @@ export function WeatherSummary(props: { weather: DailyWeather }) {
 
   return (
     <section aria-label={t('liveWeather.dailySummary')} className="grid gap-3">
-      <h3 className="text-sm font-semibold">{t('liveWeather.dailySummary')} · {props.weather.date}</h3>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <h2 className="text-sm font-semibold">{t('liveWeather.dailySummary')} · {props.weather.date}</h2>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {cards.map((card) => (
-          <article key={card.label} className="min-w-0 rounded-xl border border-white/10 bg-white/4 p-4">
+          <article key={card.label} className="min-w-0 rounded-xl border border-white/10 bg-white/4 p-3">
             <p className="text-xs text-(--fs-muted)">{card.label}</p>
-            <p className="mt-2 text-xl font-bold text-slate-100">{card.value}</p>
-            <p className="mt-2 text-xs leading-relaxed text-(--fs-faint)">{card.note}</p>
+            <p className="mt-2 text-lg font-bold text-slate-100 sm:text-xl">{card.value}</p>
+            <p className="mt-2 text-xs leading-relaxed text-(--fs-muted)">{card.note}</p>
           </article>
         ))}
       </div>

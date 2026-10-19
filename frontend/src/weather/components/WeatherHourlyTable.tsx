@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DailyWeather, WeatherHour } from '../api/weatherTypes.ts'
 import { formatWeatherHour, formatWeatherNumber, weatherPresentation, windDirectionKey } from '../lib/weatherPresentation.ts'
@@ -6,6 +6,8 @@ import { formatWeatherHour, formatWeatherNumber, weatherPresentation, windDirect
 // 將同一份逐時預報排列為橫向表格，固定指標欄，讓窄螢幕也能逐時閱讀。
 export function WeatherHourlyTable(props: { weather: DailyWeather }) {
   const { t, i18n } = useTranslation()
+  const [showExtra, setShowExtra] = useState(false)
+  const extraRowsId = useId()
 
   // 顯示可翻譯的逐時天氣與日夜圖示，避免未知代碼造成空白欄位。
   function weatherCell(hour: WeatherHour): ReactNode {
@@ -25,15 +27,27 @@ export function WeatherHourlyTable(props: { weather: DailyWeather }) {
     )
   }
 
-  const rows: { key: string; label: string; render: (hour: WeatherHour) => ReactNode }[] = [
+  const rows: { key: string; label: string; extra?: boolean; render: (hour: WeatherHour) => ReactNode }[] = [
     { key: 'weather', label: t('liveWeather.weatherLabel'), render: weatherCell },
     { key: 'temperature', label: t('liveWeather.temperatureC'), render: (hour) => formatWeatherNumber(hour.temperature_c, i18n.language) },
     { key: 'rain', label: t('liveWeather.rainProbabilityPct'), render: (hour) => formatWeatherNumber(hour.precipitation_probability_pct, i18n.language, 0) },
-    { key: 'direction', label: t('liveWeather.windDirection'), render: windCell },
     { key: 'speed', label: t('liveWeather.windSpeedMps'), render: (hour) => formatWeatherNumber(hour.wind_speed_mps, i18n.language) },
-    { key: 'gusts', label: t('liveWeather.windGustsMps'), render: (hour) => formatWeatherNumber(hour.wind_gusts_mps, i18n.language) },
-    { key: 'pressure', label: t('liveWeather.pressureHpa'), render: (hour) => formatWeatherNumber(hour.pressure_hpa, i18n.language) },
+    { key: 'direction', extra: true, label: t('liveWeather.windDirection'), render: windCell },
+    { key: 'gusts', extra: true, label: t('liveWeather.windGustsMps'), render: (hour) => formatWeatherNumber(hour.wind_gusts_mps, i18n.language) },
+    { key: 'pressure', extra: true, label: t('liveWeather.pressureHpa'), render: (hour) => formatWeatherNumber(hour.pressure_hpa, i18n.language) },
   ]
+
+  // 共用主要與進階指標的列結構，保留語意標頭及固定的左側指標欄。
+  function renderRow(row: typeof rows[number]): ReactNode {
+    return (
+      <tr key={row.key} className="odd:bg-white/3 even:bg-black/15">
+        <th scope="row" className="sticky left-0 z-10 w-36 border-b border-r border-white/10 bg-[#0b1727] px-3 py-3 text-left text-xs font-semibold">{row.label}</th>
+        {props.weather.hours.map((hour) => (
+          <td key={hour.time} className="border-b border-white/5 px-3 py-3 tabular-nums">{row.render(hour)}</td>
+        ))}
+      </tr>
+    )
+  }
 
   return (
     <section className="grid min-w-0 gap-3">
@@ -52,19 +66,14 @@ export function WeatherHourlyTable(props: { weather: DailyWeather }) {
               ))}
             </tr>
           </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.key} className="odd:bg-white/3 even:bg-black/15">
-                <th scope="row" className="sticky left-0 z-10 w-36 border-b border-r border-white/10 bg-[#0b1727] px-3 py-3 text-left text-xs font-semibold">{row.label}</th>
-                {props.weather.hours.map((hour) => (
-                  <td key={hour.time} className="border-b border-white/5 px-3 py-3 tabular-nums">{row.render(hour)}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
+          <tbody>{rows.filter((row) => !row.extra).map(renderRow)}</tbody>
+          <tbody id={extraRowsId} hidden={!showExtra}>{rows.filter((row) => row.extra).map(renderRow)}</tbody>
         </table>
       </div>
-      <p className="text-xs leading-relaxed text-(--fs-faint)">{t('liveWeather.hourlyWindowNote')}</p>
+      <button type="button" aria-expanded={showExtra} aria-controls={extraRowsId} onClick={() => setShowExtra((value) => !value)} className="min-h-11 w-fit rounded-lg border border-white/15 px-3 text-sm font-medium hover:border-white/30">
+        {t(showExtra ? 'liveWeather.fewerMetrics' : 'liveWeather.moreMetrics')}
+      </button>
+      <p className="text-xs leading-relaxed text-(--fs-muted)">{t(showExtra ? 'liveWeather.hourlyWindowNote' : 'liveWeather.rainWindowNote')}</p>
     </section>
   )
 }

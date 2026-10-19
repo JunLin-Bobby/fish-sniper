@@ -4,8 +4,9 @@ import { fetchDailyWeather } from '../api/weatherApi.ts'
 import type { DailyWeather, SelectedLocation } from '../api/weatherTypes.ts'
 
 type LoadState<T> = { status: 'idle' | 'loading' | 'ready' | 'error'; data: T | null }
+export type DailyWeatherLoadState = LoadState<DailyWeather>
 
-// 管理淡水釣點逐時氣溫、氣壓圖表的載入與重試狀態。
+// 在首頁共用一份預報載入與重試狀態，呈現元件不各自呼叫 API。
 export function useDailyConditions(
   apiBaseUrl: string,
   location: SelectedLocation | null,

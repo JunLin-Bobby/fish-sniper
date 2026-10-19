@@ -1,0 +1,64 @@
+.dashboard-layout {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  align-items: start;
+  grid-template-areas: "summary" "strategy" "weather" "map" "logs";
+}
+
+.dashboard-layout > * { min-width: 0; }
+.dashboard-layout[data-has-summary="false"] { grid-template-areas: "strategy" "weather" "map" "logs"; }
+.dashboard-summary { grid-area: summary; }
+.dashboard-strategy { grid-area: strategy; }
+.dashboard-weather { grid-area: weather; }
+.dashboard-map { grid-area: map; }
+.dashboard-logs { grid-area: logs; }
+.dashboard-anchor { scroll-margin-top: 16px; }
+.dashboard-anchor:focus-visible { outline: 2px solid var(--fs-green); outline-offset: 4px; }
+
+.dashboard-header { position: relative; z-index: 40; }
+.dashboard-navigation--desktop { display: none; }
+.dashboard-navigation--mobile {
+  position: fixed;
+  z-index: 50;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  border-top: 1px solid var(--fs-line);
+  background: #07101f;
+}
+
+.dashboard-navigation-link {
+  display: flex;
+  min-height: 48px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fs-muted);
+  text-decoration: none;
+}
+.dashboard-navigation-link:hover { background: rgba(255, 255, 255, .05); color: var(--fs-ink); }
+.dashboard-navigation-link[aria-current] { background: rgba(61, 255, 138, .12); color: var(--fs-green-soft); }
+.dashboard-navigation-link:focus-visible { outline: 2px solid var(--fs-green); outline-offset: 2px; }
+.dashboard-content { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+
+@media (min-width: 1024px) {
+  .dashboard-layout {
+    grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
+    grid-template-areas: "summary strategy" "weather strategy" "map strategy" "logs logs";
+  }
+  .dashboard-layout[data-has-summary="false"] { grid-template-areas: "weather strategy" "map strategy" "logs logs"; }
+  .dashboard-header { position: sticky; top: 0; }
+  .dashboard-anchor { scroll-margin-top: var(--dashboard-header-offset, 96px); }
+  .dashboard-navigation--desktop { display: flex; gap: 4px; }
+  .dashboard-navigation--mobile { display: none; }
+  .dashboard-navigation-link { flex-direction: row; gap: 8px; font-size: 14px; padding: 8px 12px; }
+  .dashboard-content { padding-bottom: 24px; }
+}
