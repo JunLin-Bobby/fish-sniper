@@ -5,9 +5,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.auth.jwt import JwtAuthenticationError, JwtConfigurationError, decode_access_token
 from app.core.config import Settings, get_settings
-from app.db.dependencies import UsersRepositoryDependency
 from app.db.errors import DatabaseUnavailableError
-from app.db.users import UserRecord
+from app.users.dependencies import UsersRepositoryDependency
+from app.users.schemas import UserRecord
 
 bearer_scheme = HTTPBearer(auto_error=False)
 

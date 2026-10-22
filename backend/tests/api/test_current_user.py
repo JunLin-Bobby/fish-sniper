@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.auth.jwt import create_access_token
 from app.core.config import Settings, get_settings
-from app.db.dependencies import get_users_repository
-from app.db.users import UserRecord
 from app.main import create_app
+from app.users.dependencies import get_users_repository
+from app.users.schemas import UserRecord
 from tests.fakes import InMemoryUsersRepository
 
 TEST_USER = UserRecord(

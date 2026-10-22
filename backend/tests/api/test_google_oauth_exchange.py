@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from app.auth.google_oauth import GoogleOAuthConfigurationError
 from app.auth.schemas import AuthTokenResponse, GoogleOAuthExchangeRequest
 from app.core.config import Settings
-from app.db.dependencies import get_users_repository
-from app.db.users import UsersRepository
 from app.main import create_app
+from app.users.dependencies import get_users_repository
+from app.users.supabase_repository import SupabaseUsersRepository
 from tests.fakes import InMemoryUsersRepository
 
 
@@ -15,7 +15,7 @@ def test_google_oauth_exchange_returns_access_token(monkeypatch) -> None:
     async def fake_exchange_google_oauth_code(
         settings: Settings,
         payload: GoogleOAuthExchangeRequest,
-        users_repository: UsersRepository,
+        users_repository: SupabaseUsersRepository,
     ) -> AuthTokenResponse:
         """取代外部 Google 與 Supabase 呼叫，只驗證 route 傳入的資料。"""
 
@@ -60,7 +60,7 @@ def test_google_oauth_exchange_returns_503_when_google_credentials_missing(monke
     async def fake_exchange_google_oauth_code(
         settings: Settings,
         payload: GoogleOAuthExchangeRequest,
-        users_repository: UsersRepository,
+        users_repository: SupabaseUsersRepository,
     ) -> AuthTokenResponse:
         """模擬 Google OAuth credentials 缺失的 service failure。"""
 

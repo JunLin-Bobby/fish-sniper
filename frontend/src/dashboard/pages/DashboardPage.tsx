@@ -44,7 +44,7 @@ export function DashboardPage(props: { apiBaseUrl: string; onSignOut: () => void
         <StrategySummaryPanel location={location} date={date} />
         <div className="dashboard-weather"><WeatherDashboard weather={weather} hasLocation={location !== null} onRetry={retry} /></div>
         <TacticalMapPreview location={location} />
-        <CatchLogPanel />
+        <CatchLogPanel apiBaseUrl={props.apiBaseUrl} onUnauthorized={props.onSignOut} />
       </div>
     </TacticalShell>
   )

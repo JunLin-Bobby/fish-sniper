@@ -9,8 +9,8 @@ from app.auth.jwt import JwtConfigurationError
 from app.auth.schemas import AuthTokenResponse, GoogleOAuthExchangeRequest
 from app.auth.service import exchange_google_oauth_code
 from app.core.config import Settings, get_settings
-from app.db.dependencies import UsersRepositoryDependency
 from app.db.errors import DatabaseUnavailableError
+from app.users.dependencies import UsersRepositoryDependency
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

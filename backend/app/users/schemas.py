@@ -1,6 +1,18 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class UserRecord(BaseModel):
+    """users 功能共用的內部使用者資料，供 repository 與登入驗證使用。"""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: UUID
+    google_sub: str
+    email: str
+    display_name: str | None = None
+    avatar_url: str | None = None
 
 
 class CurrentUserResponse(BaseModel):

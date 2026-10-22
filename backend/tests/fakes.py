@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.db.users import UserRecord
+from app.users.schemas import UserRecord
 
 
 class InMemoryUsersRepository:

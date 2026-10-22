@@ -5,14 +5,14 @@ from app.auth.google_oauth import (
 from app.auth.jwt import create_access_token
 from app.auth.schemas import AuthTokenResponse, GoogleOAuthExchangeRequest
 from app.core.config import Settings
-from app.db.users import UsersRepository
+from app.users.supabase_repository import SupabaseUsersRepository
 
 
 # 統整 Google token 交換、身分驗證與 FishSniper access token 簽發三個步驟。
 async def exchange_google_oauth_code(
     settings: Settings,
     payload: GoogleOAuthExchangeRequest,
-    users_repository: UsersRepository,
+    users_repository: SupabaseUsersRepository,
 ) -> AuthTokenResponse:
     """驗證 Google identity、建立內部 user，並簽發以 user UUID 為 sub 的 JWT。"""
 

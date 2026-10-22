@@ -3,13 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
 from app.auth.router import router as auth_router
+from app.catch_logs.router import router as catch_logs_router
 from app.core.config import get_settings
 from app.users.router import router as users_router
 from app.weather.router import router as weather_router
 
 
 def create_app() -> FastAPI:
-    """建立 FastAPI app，註冊 middleware 與所有 Phase 0 routers。"""
+    """建立 FastAPI app，註冊共用 middleware、登入、天氣與私人漁獲 routers。"""
 
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(users_router)
     app.include_router(weather_router)
+    app.include_router(catch_logs_router)
     return app
 
 

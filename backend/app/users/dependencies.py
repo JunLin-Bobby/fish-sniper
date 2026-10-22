@@ -5,12 +5,11 @@ from fastapi import Depends, HTTPException, status
 from app.core.config import Settings, get_settings
 from app.db.client import create_supabase_rest_client
 from app.db.errors import DatabaseConfigurationError
-from app.db.supabase_users import SupabaseUsersRepository
-from app.db.users import UsersRepository
+from app.users.supabase_repository import SupabaseUsersRepository
 
 
-def get_users_repository(settings: Settings = Depends(get_settings)) -> UsersRepository:
-    """建立 request 可使用的 users repository，並將缺少設定轉成 HTTP 503。"""
+def get_users_repository(settings: Settings = Depends(get_settings)) -> SupabaseUsersRepository:
+    """直接建立 request 使用的 Supabase repository，並將缺少設定轉成 HTTP 503。"""
 
     try:
         client = create_supabase_rest_client(settings)
@@ -22,4 +21,4 @@ def get_users_repository(settings: Settings = Depends(get_settings)) -> UsersRep
     return SupabaseUsersRepository(client)
 
 
-UsersRepositoryDependency = Annotated[UsersRepository, Depends(get_users_repository)]
+UsersRepositoryDependency = Annotated[SupabaseUsersRepository, Depends(get_users_repository)]

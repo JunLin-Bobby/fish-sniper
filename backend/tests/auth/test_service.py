@@ -5,7 +5,7 @@ from app.auth.jwt import decode_access_token
 from app.auth.schemas import GoogleOAuthExchangeRequest
 from app.auth.service import exchange_google_oauth_code
 from app.core.config import Settings
-from app.db.users import UserRecord
+from app.users.schemas import UserRecord
 from tests.fakes import InMemoryUsersRepository
 
 

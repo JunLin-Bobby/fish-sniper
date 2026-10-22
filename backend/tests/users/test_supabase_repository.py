@@ -5,7 +5,7 @@ from uuid import UUID
 import httpx
 
 from app.db.client import SupabaseRestClient
-from app.db.supabase_users import SupabaseUsersRepository
+from app.users.supabase_repository import SupabaseUsersRepository
 
 
 def test_find_or_create_google_user_uses_atomic_supabase_upsert() -> None:

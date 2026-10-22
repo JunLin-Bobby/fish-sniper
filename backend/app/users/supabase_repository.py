@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.db.client import SupabaseRestClient
 from app.db.errors import DatabaseUnavailableError
-from app.db.users import UserRecord
+from app.users.schemas import UserRecord
 
 USER_SELECT_COLUMNS = "id,google_sub,email,display_name,avatar_url"
 

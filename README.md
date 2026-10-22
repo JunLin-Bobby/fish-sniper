@@ -18,6 +18,8 @@ Live demo: https://fish-sniper.pages.dev | Backend: Railway | Frontend: Cloudfla
 5. The signed-in dashboard calls `GET /api/v1/me` to validate the saved session.
 6. One Open-Meteo request supplies the daily weather summary, air temperature and
    pressure charts, and an hourly table with rain probability, wind and gusts.
+7. Private catch logs support create, paginated list, detail, edit and confirmed deletion.
+   Apply the catch-log migration below before using this feature.
 
 ---
 
@@ -41,8 +43,9 @@ backend/
     main.py         FastAPI app factory, middleware, router registration
     core/           Settings, security, errors, rate limiting, time
     auth/           Google OAuth exchange, JWT, auth schemas and routes
-    db/             Supabase REST client, users repository, DB dependencies
-    users/          Protected current-user API
+    db/             Shared Supabase REST transport and database errors only
+    users/          Current-user API, user schemas, repository, Supabase adapter and DI
+    catch_logs/     Private single-fish catch log CRUD and owner-scoped repository
     weather/        Hourly weather, location search, interchangeable cache
   tests/            pytest coverage for health, rate limiting, Google OAuth
 
@@ -55,11 +58,20 @@ frontend/
     i18n/           English/Traditional Chinese strings and language switcher
     users/          Current-user API and session validation hook
     dashboard/      Rebuilt tactical dashboard baseline
+    catch-logs/     Real catch forms, details, paginated list and API helpers
     weather/        Location picker, hourly weather loading and area charts
 
 supabase/
   migrations/       Database schema migrations
 ```
+
+Repositories are owned by their feature modules: `users/` and `catch_logs/` each
+contain `supabase_repository.py` (concrete data access), `dependencies.py`
+(composition), and `schemas.py` (feature data models). Services directly depend on
+the concrete Supabase repository, supplied through dependency injection; no separate
+repository Protocol is maintained. They share `db/client.py` and `db/errors.py`;
+there is no all-purpose database repository. Authentication uses the users feature's
+Supabase repository and dependencies. The replaceable weather cache interface is unchanged.
 
 ---
 
@@ -106,8 +118,9 @@ mobile stacks summary, strategy, weather details and map. Recent logs sit below.
 Desktop navigation sticks to the top, and mobile navigation stays at the bottom
 with safe-area spacing. Overview, spots, strategy and logs navigate to real homepage
 sections, not separate feature pages. Account details and sign-out are in the header
-account menu. The AI, map and log panels are clearly labelled previews with unavailable
+account menu. The AI and map panels remain clearly labelled previews with unavailable
 actions disabled; they do not display invented scores or catch probabilities.
+Catch logs now use real backend data rather than sample entries.
 
 Both weather APIs require a FishSniper Bearer token:
 
@@ -126,7 +139,15 @@ Open-Meteo's free API is for non-commercial use; review its
 
 Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to
 `frontend/.env`, fill Google OAuth + Supabase + JWT values, then apply
-`supabase/migrations/202609240001_create_users.sql` to the target Supabase project.
+the following migrations, in order, to the target Supabase project:
+
+1. `supabase/migrations/202609240001_create_users.sql` (existing users setup).
+2. `supabase/migrations/202610200001_create_catch_logs.sql` (new private catch logs).
+
+For an existing project where the users migration has already run, apply only the
+new catch-log migration in the Supabase SQL Editor or your migration workflow.
+Starting Docker does **not** apply these remote database migrations automatically.
+No hosted database is modified just by changing or testing this repository.
 
 Existing local environments using `JWT_SECRET` and `SUPABASE_SERVICE_ROLE_KEY` remain
 supported during migration. New environments should use `JWT_SECRET_KEY` and
@@ -140,7 +161,38 @@ cd backend && uv sync --all-groups && uv run uvicorn app.main:app --reload
 cd frontend && npm ci && npm run dev
 ```
 
-CI: `.github/workflows/ci.yml` runs backend lint/tests and frontend build.
+CI: `.github/workflows/ci.yml` runs backend lint/tests, frontend HTTP/date tests and frontend build.
+
+## Private catch logs (Phase 2B)
+
+Species and catch time are required. Length (cm), weight (g), fishing method and
+notes are optional. Supported methods are lure, qian-da, bottom, hand-pole, fly
+fishing and other. Measurements must be finite and greater than zero; notes are
+limited to 2,000 characters. Catch time is entered and displayed in the device's
+time zone and sent with an explicit UTC offset/instant, independently of forecast dates.
+
+All five `/api/v1/catch-logs` endpoints require a FishSniper Bearer token. The
+backend supplies `user_id`; clients cannot override it or submit system fields.
+Read, update and delete operations filter by both owner and record ID. Records
+that are missing or belong to someone else both return 404. Supabase RLS is on,
+client-role grants are revoked, and only the backend `service_role` receives CRUD
+grants. The backend must enforce ownership because its credential bypasses RLS.
+
+The list uses `limit` (default 20, maximum 100) and `offset`, ordered by catch time
+and UUID descending. Responses contain `items`, `limit`, `offset`, and `has_more`.
+The UI shows ten records per page and refreshes the first page after mutations.
+Offset pages are live views, not stable snapshots if records change concurrently.
+PATCH preserves omitted fields and clears optional fields with `null`; required
+fields cannot be cleared. DELETE returns 204 without a JSON body.
+
+Photos, HEIC processing, Storage, EXIF and map location selection are **not** part
+of 2B. No latitude/longitude inputs or photo endpoints are provided. The later
+photo phase will support at most two photos per fish. See
+[the catch-log design](docs/catch-logs-phase-2b.md) for the schema and implementation boundaries.
+
+Run frontend HTTP and date tests with `cd frontend && npm test` (Node 22.6+).
+Database constraint/grant checks are in `supabase/tests/catch_logs.sql`; run these
+only against a disposable test database after applying both migrations.
 
 ### Docker Desktop
 

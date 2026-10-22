@@ -1,1 +1,1 @@
-"""Database access layer."""
+"""共用資料庫傳輸與錯誤；各功能的 repository 由各自模組管理。"""
