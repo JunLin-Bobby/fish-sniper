@@ -17,7 +17,7 @@ FishingMethod = Literal["lure", "front_strike", "bottom", "hand_pole", "fly_fish
 
 
 class CatchLogOptionalFields(BaseModel):
-    """共用選填欄位；2B 不接受照片、座標或由前端指定的擁有者。"""
+    """魚獲 JSON 欄位；照片走 multipart 檔案，不接受座標或由前端指定擁有者。"""
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 

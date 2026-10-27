@@ -2,15 +2,16 @@ import { useId, useRef, useEffect, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { fishingMethods, type CatchLog, type CatchLogInput, type FishingMethod } from '../api/catchLogTypes.ts'
 import { toLocalDateTimeInput } from '../lib/catchLogPresentation.ts'
+import { CatchPhotoPicker } from './CatchPhotoPicker.tsx'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-white/20 bg-[#07101f] px-3 py-2 text-base text-(--fs-ink) focus-visible:outline focus-visible:outline-2 focus-visible:outline-(--fs-green)'
 
-// 新增與修改共用的純文字表單，不提供照片或經緯度輸入框。
+// 新增表單一次提交文字與照片；既有紀錄保留文字編輯，不要求手動輸入座標。
 export function CatchLogForm(props: {
   record?: CatchLog
   busy: boolean
   error: string | null
-  onSubmit: (input: CatchLogInput) => Promise<void>
+  onSubmit: (input: CatchLogInput, files: File[]) => Promise<void>
   onCancel: () => void
 }) {
   const { t } = useTranslation()
@@ -25,6 +26,7 @@ export function CatchLogForm(props: {
   const [method, setMethod] = useState<FishingMethod | ''>(props.record?.fishing_method ?? '')
   const [notes, setNotes] = useState(props.record?.notes ?? '')
   const [validationError, setValidationError] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
   // 開啟表單後移動鍵盤焦點到魚種，讓手機與鍵盤使用者可直接輸入。
@@ -47,7 +49,7 @@ export function CatchLogForm(props: {
       species_name: species.trim(), caught_at: caught.toISOString(),
       length_cm: lengthValue, weight_g: weightValue,
       fishing_method: method || null, notes: notes.trim() || null,
-    })
+    }, files)
   }
 
   return (
@@ -87,6 +89,7 @@ export function CatchLogForm(props: {
           <label htmlFor={`${id}-notes`}>{t('catchLogs.notes')}</label>
           <textarea id={`${id}-notes`} rows={3} maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} className={`${inputClass} resize-y`} />
         </div>
+        {!props.record ? <CatchPhotoPicker files={files} onChange={setFiles} /> : null}
       </fieldset>
       {validationError || props.error ? <p role="alert" className="text-sm text-red-300">{validationError ? t('catchLogs.invalidInput') : props.error}</p> : null}
       <div className="flex flex-wrap gap-2">

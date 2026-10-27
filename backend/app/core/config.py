@@ -38,6 +38,15 @@ class Settings(BaseSettings):
     weather_request_timeout_seconds: float = 10.0
     weather_cache_ttl_seconds: int = 1800
 
+    catch_photo_bucket: str = "catch-photos"
+    catch_photo_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
+    catch_photo_max_pixels: int = Field(default=60_000_000, ge=1)
+    catch_photo_max_edge: int = Field(default=2048, ge=64, le=4096)
+    catch_photo_signed_url_seconds: int = Field(default=300, ge=30, le=3600)
+    catch_upload_receive_seconds: float = Field(default=45, gt=0, le=120)
+    catch_upload_processing_seconds: float = Field(default=30, gt=0, le=120)
+    catch_cleanup_interval_seconds: int = Field(default=60, ge=0)
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     @property

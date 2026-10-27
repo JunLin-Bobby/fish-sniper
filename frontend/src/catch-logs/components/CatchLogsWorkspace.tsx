@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { HttpStatusError } from '../../api/http.ts'
-import { createCatchLog, deleteCatchLog, updateCatchLog } from '../api/catchLogApi.ts'
+import { HttpStatusError, NetworkRequestError, RequestTimeoutError } from '../../api/http.ts'
+import { deleteCatchLog, updateCatchLog } from '../api/catchLogApi.ts'
+import type { CatchLogSubmission } from '../hooks/useCatchLogSubmission.ts'
 import type { CatchLog, CatchLogInput } from '../api/catchLogTypes.ts'
 import { useCatchLogDetail, useCatchLogs } from '../hooks/useCatchLogs.ts'
 import { formatCaughtAt } from '../lib/catchLogPresentation.ts'
@@ -12,8 +13,9 @@ type View = { mode: 'list' } | { mode: 'create' } | { mode: 'detail'; id: string
 const buttonClass = 'min-h-11 rounded-lg border border-white/20 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50'
 
 // 協調真實紀錄列表、詳情、表單與刪除，不混用示意資料或首頁預報地點。
-export function CatchLogsWorkspace(props: { apiBaseUrl: string; onUnauthorized: () => void }) {
+export function CatchLogsWorkspace(props: { apiBaseUrl: string; onUnauthorized: () => void; submission: CatchLogSubmission }) {
   const { t, i18n } = useTranslation()
+  const submission = props.submission
   const { page, offset, setOffset, refresh, pageSize } = useCatchLogs(props.apiBaseUrl, props.onUnauthorized)
   const [view, setView] = useState<View>({ mode: 'list' })
   const { detail, retry } = useCatchLogDetail(props.apiBaseUrl, view.mode === 'detail' ? view.id : null, props.onUnauthorized)
@@ -23,6 +25,16 @@ export function CatchLogsWorkspace(props: { apiBaseUrl: string; onUnauthorized: 
   const [notice, setNotice] = useState<string | null>(null)
   const addButton = useRef<HTMLButtonElement>(null)
   const previousMode = useRef<View['mode']>('list')
+
+  // 已發布但回應遺失時直接開啟原紀錄，不建立第二筆；先保留確認成功提示。
+  useEffect(() => {
+    if (submission.phase === 'success' && submission.logId) {
+      setView({ mode: 'detail', id: submission.logId })
+      setNotice(null)
+      refresh()
+    }
+    if (submission.phase === 'failed') setActionError(null)
+  }, [submission.phase, submission.logId, submission.revision, refresh])
 
   // 等 React 移除表單並重新啟用按鈕後才還原焦點，避免 focus 到 disabled 元素。
   useEffect(() => {
@@ -46,20 +58,26 @@ export function CatchLogsWorkspace(props: { apiBaseUrl: string; onUnauthorized: 
   // 將 API 錯誤轉成翻譯提示，不顯示原始資料庫或驗證 payload。
   function reportError(error: unknown): void {
     if (error instanceof HttpStatusError && error.status === 401) props.onUnauthorized()
+    else if (error instanceof RequestTimeoutError) setActionError('catchLogs.actionTimeout')
+    else if (error instanceof NetworkRequestError) setActionError('catchLogs.actionNetwork')
     else setActionError(error instanceof HttpStatusError && error.status === 404 ? 'catchLogs.notFound'
       : error instanceof HttpStatusError && error.status === 422 ? 'catchLogs.invalidInput' : 'catchLogs.actionFailed')
   }
 
   // 防止重複提交；只有 API 成功才關閉表單並重新讀取儲存結果。
-  async function save(input: CatchLogInput): Promise<void> {
+  async function save(input: CatchLogInput, files: File[]): Promise<void> {
     if (mutationLock.current) return
+    if (view.mode === 'create') {
+      await submission.submit(input, files)
+      return
+    }
     mutationLock.current = true
     setBusy(true)
     setActionError(null)
     try {
-      if (view.mode === 'edit') await updateCatchLog(props.apiBaseUrl, view.record.id, input)
-      else await createCatchLog(props.apiBaseUrl, input)
-      setView({ mode: 'list' })
+      if (view.mode !== 'edit') return
+      const record = await updateCatchLog(props.apiBaseUrl, view.record.id, input)
+      setView({ mode: 'detail', id: record.id })
       setNotice('catchLogs.saved')
       refresh()
     } catch (error) { reportError(error) }
@@ -85,14 +103,14 @@ export function CatchLogsWorkspace(props: { apiBaseUrl: string; onUnauthorized: 
     <section id="logs" tabIndex={-1} aria-labelledby="logs-heading" className="dashboard-logs dashboard-anchor grid min-w-0 gap-4 rounded-[18px] border border-(--fs-line) bg-(--fs-panel) p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h2 id="logs-heading" className="text-base font-semibold">{t('catchLogs.title')}</h2><p className="mt-1 text-xs text-(--fs-muted)">{t('catchLogs.privateHint')}</p></div>
-        <button ref={addButton} type="button" disabled={busy || view.mode === 'create' || view.mode === 'edit'} onClick={() => open({ mode: 'create' })} className={`${buttonClass} border-[rgba(61,255,138,.4)] text-(--fs-green-soft)`}>{t('catchLogs.add')}</button>
+        <button ref={addButton} type="button" disabled={busy || submission.unresolved || view.mode === 'create' || view.mode === 'edit'} onClick={() => open({ mode: 'create' })} className={`${buttonClass} border-[rgba(61,255,138,.4)] text-(--fs-green-soft)`}>{t('catchLogs.add')}</button>
       </div>
       {notice ? <p role="status" className="text-sm text-(--fs-green-soft)">{t(notice)}</p> : null}
       {view.mode === 'create' || view.mode === 'edit' ? (
-        <CatchLogForm key={view.mode === 'edit' ? view.record.id : 'new'} record={view.mode === 'edit' ? view.record : undefined} busy={busy} error={actionError ? t(actionError) : null} onSubmit={save} onCancel={close} />
+        <CatchLogForm key={view.mode === 'edit' ? view.record.id : `new-${submission.revision}`} record={view.mode === 'edit' ? view.record : undefined} busy={busy || (view.mode === 'create' && submission.unresolved)} error={actionError ? t(actionError) : null} onSubmit={save} onCancel={close} />
       ) : null}
       {view.mode === 'detail' ? (
-        detail.status === 'ready' && detail.data?.id === view.id ? <CatchLogDetails key={view.id} record={detail.data} busy={busy} error={actionError ? t(actionError) : null} onEdit={() => open({ mode: 'edit', record: detail.data! })} onDelete={remove} onClose={close} />
+        detail.status === 'ready' && detail.data?.id === view.id ? <CatchLogDetails key={view.id} apiBaseUrl={props.apiBaseUrl} onUnauthorized={props.onUnauthorized} onTimeChanged={() => { retry(); refresh() }} record={detail.data} busy={busy} error={actionError ? t(actionError) : null} onEdit={() => open({ mode: 'edit', record: detail.data! })} onDelete={remove} onClose={close} />
           : <div className="grid gap-3 rounded-xl border border-white/15 p-3"><p role="status" className="text-sm">{t(detail.status === 'error' ? detail.missing ? 'catchLogs.notFound' : 'catchLogs.loadFailed' : 'catchLogs.loading')}</p><div className="flex gap-2">{detail.status === 'error' && !detail.missing ? <button type="button" onClick={retry} className={buttonClass}>{t('catchLogs.retry')}</button> : null}<button type="button" onClick={close} className={buttonClass}>{t('catchLogs.close')}</button></div></div>
       ) : null}
       {page.status === 'loading' ? <p role="status" className="text-sm text-(--fs-muted)">{t('catchLogs.loading')}</p>

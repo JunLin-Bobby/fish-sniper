@@ -44,8 +44,9 @@ backend/
     core/           Settings, security, errors, rate limiting, time
     auth/           Google OAuth exchange, JWT, auth schemas and routes
     db/             Shared Supabase REST transport and database errors only
+    storage/        Shared private Storage HTTP transport (no catch business rules)
     users/          Current-user API, user schemas, repository, Supabase adapter and DI
-    catch_logs/     Private single-fish catch log CRUD and owner-scoped repository
+    catch_logs/     Private catches, photo processing, publication and recoverable cleanup
     weather/        Hourly weather, location search, interchangeable cache
   tests/            pytest coverage for health, rate limiting, Google OAuth
 
@@ -53,7 +54,7 @@ frontend/
   src/
     app/            React app composition and routes
     auth/           Sign-in pages, auth UI, hooks, OAuth lib, auth API calls
-    api/            Generic JSON HTTP client and common API envelope types
+    api/            Shared JSON/multipart HTTP client and Bearer authentication
     config/         Public runtime environment readers
     i18n/           English/Traditional Chinese strings and language switcher
     users/          Current-user API and session validation hook
@@ -143,9 +144,10 @@ the following migrations, in order, to the target Supabase project:
 
 1. `supabase/migrations/202609240001_create_users.sql` (existing users setup).
 2. `supabase/migrations/202610200001_create_catch_logs.sql` (new private catch logs).
+3. `supabase/migrations/202610220001_catch_log_photos.sql` (private photos and transactional publication).
 
-For an existing project where the users migration has already run, apply only the
-new catch-log migration in the Supabase SQL Editor or your migration workflow.
+For an existing project, apply only the migrations not already run, in order,
+in the Supabase SQL Editor or your migration workflow.
 Starting Docker does **not** apply these remote database migrations automatically.
 No hosted database is modified just by changing or testing this repository.
 
@@ -185,14 +187,66 @@ Offset pages are live views, not stable snapshots if records change concurrently
 PATCH preserves omitted fields and clears optional fields with `null`; required
 fields cannot be cleared. DELETE returns 204 without a JSON body.
 
-Photos, HEIC processing, Storage, EXIF and map location selection are **not** part
-of 2B. No latitude/longitude inputs or photo endpoints are provided. The later
-photo phase will support at most two photos per fish. See
-[the catch-log design](docs/catch-logs-phase-2b.md) for the schema and implementation boundaries.
+2C/2D now adds optional photos to the same create form (up to two JPEG/PNG/HEIC,
+20 MB each). Files are decoded, orientation-corrected, resized and stored as JPEG
+in a private Storage bucket; originals and embedded EXIF are not retained in the
+served images. Minimal extracted time/GPS are private metadata, never automatically
+applied as catch time/location. Map location confirmation remains out of scope.
+
+Creation uses one multipart request to `POST /api/v1/catch-logs/with-photos`.
+Send the same UUID in the `Idempotency-Key` header and `submission_id` form field.
+The backend registers the operation before parsing multipart, then enforces a
+45-second receive budget and a separate 30-second processing budget (configurable).
+Pending catches are hidden until one PostgreSQL RPC publishes the catch and all
+photos together. Storage is outside this transaction: failures initiate compensation,
+with durable manifests retained for retry. A submission UUID prevents duplicate
+creation after lost responses. Original JSON CRUD remains supported.
+
+Existing-record editing currently changes text fields only; photo selection is in
+the new-catch form. Photos can be viewed/deleted individually in details. Adding or
+replacing photos on an existing catch is not yet implemented.
+
+The backend retries cleanup every 60 seconds (`CATCH_CLEANUP_INTERVAL_SECONDS=0`
+disables this timer). Reservations expire at their database deadline, including
+operations interrupted before a catch row exists. Publication checks this deadline;
+cancelled drafts retain their manifests for at least five minutes for a second
+cleanup pass after potentially late uploads. You may also retry manually:
+
+```bash
+docker compose -f docker-compose-dev.yaml exec backend uv run python -m app.catch_logs.cleanup
+```
+
+The timer is not a memory queue: all work state lives in PostgreSQL. The backend
+must be running for retries, or the CLI must be run. See the
+[2B design](docs/catch-logs-phase-2b.md) and the
+[2C/2D implementation and code-review guide](docs/catch-logs-phase-2cd-review.md).
+
+Shared frontend HTTP calls now have a deadline through response-body reading:
+15 seconds by default, 60 seconds for photo submissions and at most 10 seconds
+per recovery call. There is no 15-second slow-upload notice. Normal submissions
+wait for the original response without polling. Lost/invalid responses start
+automatic `POST /api/v1/catch-logs/submissions/{id}/resolve` recovery: at most
+three calls in a 30-second round, with 2/5-second backoff on connection errors.
+Pending work uses the server's deadline; a deadline beyond the round gets one
+deferred wake-up, not continuous polling. Further transport failures wait for
+online/focus/visibility events. No photos are automatically retransmitted.
+Only an account-scoped operation UUID is persisted in localStorage (legacy
+sessionStorage IDs are migrated). There is no form/photo snapshot or draft.
+Confirmed failure resets the create form; unresolved connection failures never
+pretend the catch failed. The common dashboard shows only progress and final
+success/failure, with no manual check-result button or internal status codes.
+Missing IDs are atomically fenced before returning failure; late requests cannot
+recreate them. Browser abort is not a server rollback. Expired sessions sign out
+without deleting the recovery ID. These budgets are not measured upload SLAs.
+Backend logs distinguish upstream timeout types without logging secrets or file paths.
 
 Run frontend HTTP and date tests with `cd frontend && npm test` (Node 22.6+).
 Database constraint/grant checks are in `supabase/tests/catch_logs.sql`; run these
-only against a disposable test database after applying both migrations.
+only against a disposable test database. Apply all four migrations first; also run
+`supabase/tests/catch_log_photos.sql` and `supabase/tests/submission_recovery.sql`.
+See [upload recovery review](docs/catch-log-upload-recovery.md) for the code path,
+deadline/locking rules and deployment instructions. Hosted migrations are not
+automatically applied by development tests.
 
 ### Docker Desktop
 

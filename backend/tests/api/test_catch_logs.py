@@ -8,11 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.auth.jwt import create_access_token
-from app.catch_logs.dependencies import get_catch_logs_repository
+from app.catch_logs.dependencies import get_catch_logs_repository, get_catch_photo_service
+from app.catch_logs.photo_service import CatchPhotoService
+from app.catch_logs.supabase_photo_repository import SupabaseCatchPhotoRepository
 from app.catch_logs.supabase_repository import SupabaseCatchLogsRepository
 from app.core.config import Settings, get_settings
 from app.db.client import SupabaseRestClient
 from app.main import create_app
+from app.storage.client import SupabaseStorageClient
 from app.users.dependencies import get_users_repository
 from app.users.schemas import UserRecord
 from tests.fakes import InMemoryUsersRepository
@@ -33,31 +36,86 @@ class PostgrestCatchStore:
         self.failure = False
         self.invalid_response = False
         self.tick = 0
+        self.photos: dict[str, dict[str, Any]] = {}
+        self.receipts: dict[str, dict[str, Any]] = {}
+        self.objects: dict[str, bytes] = {}
+        self.upload_count = 0
+        self.fail_upload_number = 0
+        self.fail_cleanup = False
+        self.fail_publish = False
+        self.lose_publish_response = False
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         """以 request 的 owner filter 實際篩選資料，並保留 JSON 值而不執行任何 SQL。"""
 
         self.requests.append(request)
-        assert request.url.path == "/rest/v1/catch_logs"
         assert request.headers["apikey"] == "catch-test-server-key"
         if self.failure:
             return httpx.Response(403, json={"code": "42501", "message": "private provider error"})
         if self.invalid_response:
             return httpx.Response(200, json={"unexpected": "not a list"})
+        if request.url.path.startswith("/storage/v1/"):
+            return self.storage(request)
+        if "/rpc/" in request.url.path:
+            return self.rpc(request)
+        if request.url.path == "/rest/v1/catch_log_submissions":
+            key = request.url.params["user_id"][3:] + request.url.params["submission_id"][3:]
+            receipt = self.receipts.get(key)
+            rows = [{"status": receipt["status"], "log_id": receipt["log_id"]}] if receipt else []
+            return httpx.Response(200, json=rows)
+        if request.url.path == "/rest/v1/catch_log_photos":
+            if request.method == "GET" and request.url.params.get("status") == "eq.deleting":
+                return httpx.Response(
+                    200,
+                    json=[
+                        {
+                            "id": p["id"],
+                            "catch_log_id": p["catch_log_id"],
+                            "catch_logs": {"user_id": self.rows[p["catch_log_id"]]["user_id"]},
+                        }
+                        for p in self.photos.values()
+                        if p["status"] == "deleting"
+                        and self.rows[p["catch_log_id"]]["status"] == "ready"
+                    ],
+                )
+            rows = [
+                p
+                for p in self.photos.values()
+                if p["catch_log_id"] == request.url.params.get("catch_log_id", "")[3:]
+            ]
+            if request.method == "DELETE":
+                for photo in rows:
+                    if photo["id"] == request.url.params.get("id", "")[3:]:
+                        self.photos.pop(photo["id"])
+                return httpx.Response(204)
+            return httpx.Response(200, json=rows)
+        assert request.url.path == "/rest/v1/catch_logs"
         self.tick += 1
         now = (datetime(2026, 10, 20, tzinfo=UTC) + timedelta(seconds=self.tick)).isoformat()
         if request.method == "POST":
             payload = json.loads(request.content)
             assert "id" not in payload and "created_at" not in payload
-            row = {**payload, "id": str(uuid4()), "created_at": now, "updated_at": now}
+            row = {
+                "status": "ready",
+                **payload,
+                "id": str(uuid4()),
+                "created_at": now,
+                "updated_at": now,
+            }
             self.rows[row["id"]] = row
             assert request.headers["prefer"] == "return=representation"
             return httpx.Response(201, json=[row])
 
         params = request.url.params
+        if params.get("status") == "neq.ready":
+            return httpx.Response(
+                200, json=[row for row in self.rows.values() if row["status"] != "ready"]
+            )
         assert params["user_id"].startswith("eq.")
         owner = str(UUID(params["user_id"][3:]))
         rows = [row for row in self.rows.values() if row["user_id"] == owner]
+        if params.get("status") == "eq.ready":
+            rows = [row for row in rows if row["status"] == "ready"]
         if "id" in params:
             log_id = str(UUID(params["id"][3:]))
             rows = [row for row in rows if row["id"] == log_id]
@@ -86,12 +144,187 @@ class PostgrestCatchStore:
             rows = rows[offset : offset + limit]
         return httpx.Response(200, json=rows)
 
+    def storage(self, request: httpx.Request) -> httpx.Response:
+        """模擬真正 Storage HTTP 邊界，支援部分上傳、簽署及清理失敗。"""
+
+        if request.method == "DELETE":
+            if self.fail_cleanup:
+                return httpx.Response(503)
+            for path in json.loads(request.content)["prefixes"]:
+                self.objects.pop(path, None)
+            return httpx.Response(200, json=[])
+        if "/object/sign/" in request.url.path:
+            path = request.url.path.split("/object/sign/")[1]
+            return httpx.Response(200, json={"signedURL": "/object/sign/" + path + "?token=test"})
+        self.upload_count += 1
+        if self.upload_count == self.fail_upload_number:
+            return httpx.Response(503)
+        assert request.headers["content-type"] == "image/jpeg"
+        path = request.url.path.split("/object/catch-photos/")[1]
+        self.objects[path] = request.content
+        return httpx.Response(200, json={"Key": path})
+
+    def rpc(self, request: httpx.Request) -> httpx.Response:
+        """模擬狀態交易；正式 SQL 的交易與權限另外用 PostgreSQL 整合測試驗證。"""
+
+        name = request.url.path.rsplit("/", 1)[1]
+        data = json.loads(request.content)
+        log_id = data.get("p_log_id")
+        owner = data.get("p_user_id")
+        row = self.rows.get(log_id)
+        key = (owner or "") + data.get("p_submission_id", "")
+        receipt = self.receipts.get(key)
+        now = datetime.now(UTC)
+        if name == "register_catch_submission":
+            if receipt:
+                return httpx.Response(
+                    200, json={"outcome": receipt["status"], "log_id": receipt["log_id"]}
+                )
+            self.receipts[key] = {
+                "status": "pending",
+                "log_id": None,
+                "fingerprint": None,
+                "attempt_id": data["p_attempt_id"],
+                "deadline": now + timedelta(seconds=data["p_seconds"]),
+            }
+            return httpx.Response(200, json={"outcome": "new"})
+        if name == "start_catch_processing":
+            valid = bool(
+                receipt
+                and receipt["status"] == "pending"
+                and receipt.get("attempt_id") == data["p_attempt_id"]
+                and receipt["deadline"] > now
+            )
+            if valid:
+                receipt["deadline"] = now + timedelta(seconds=data["p_seconds"])
+            return httpx.Response(200, json=valid)
+        if name in ("resolve_catch_submission", "fail_catch_submission"):
+            if not receipt:
+                receipt = {"status": "failed", "log_id": None, "fingerprint": None, "deadline": now}
+                self.receipts[key] = receipt
+            must_fail = receipt["status"] == "pending" and (
+                receipt.get("deadline", now) <= now
+                or (
+                    name == "fail_catch_submission"
+                    and receipt.get("attempt_id") == data["p_attempt_id"]
+                )
+            )
+            if must_fail:
+                receipt["status"] = "failed"
+                if receipt["log_id"] in self.rows:
+                    self.rows[receipt["log_id"]]["status"] = "cleanup_pending"
+            remaining = max(0, int((receipt["deadline"] - now).total_seconds() * 1000) + 100)
+            return httpx.Response(
+                200,
+                json={
+                    "status": receipt["status"],
+                    "log_id": receipt["log_id"],
+                    "retry_after_ms": remaining if receipt["status"] == "pending" else 0,
+                },
+            )
+        if name == "expire_catch_submissions":
+            for entry in self.receipts.values():
+                if entry["status"] == "pending" and entry.get("deadline", now) <= now:
+                    entry["status"] = "failed"
+                    if entry["log_id"] in self.rows:
+                        self.rows[entry["log_id"]]["status"] = "cleanup_pending"
+            return httpx.Response(200, json=0)
+        if name == "begin_catch_submission":
+            key = owner + data["p_submission_id"]
+            if key in self.receipts and not (
+                receipt["status"] == "pending"
+                and receipt["fingerprint"] is None
+                and receipt.get("attempt_id") == data.get("p_attempt_id")
+                and receipt["deadline"] > now
+            ):
+                receipt = self.receipts[key]
+                outcome = (
+                    receipt["status"]
+                    if receipt["fingerprint"] in (None, data["p_fingerprint"])
+                    else "conflict"
+                )
+                return httpx.Response(200, json={"outcome": outcome, "log_id": receipt["log_id"]})
+            now = datetime.now(UTC).isoformat()
+            self.rows[log_id] = {
+                "id": log_id,
+                "user_id": owner,
+                "status": "pending",
+                "created_at": now,
+                "updated_at": now,
+                **data["p_values"],
+            }
+            self.receipts[key] = {
+                **(receipt or {}),
+                "status": "pending",
+                "log_id": log_id,
+                "fingerprint": data["p_fingerprint"],
+            }
+            for photo in data["p_photos"]:
+                self.photos[photo["id"]] = {**photo, "catch_log_id": log_id, "status": "pending"}
+            return httpx.Response(200, json={"outcome": "new", "log_id": log_id})
+        if not row or row["user_id"] != owner:
+            return httpx.Response(200, json=None if name == "begin_catch_photo_delete" else False)
+        photos = [p for p in self.photos.values() if p["catch_log_id"] == log_id]
+        if name == "mark_catch_photo_uploaded":
+            if row["status"] != "pending":
+                return httpx.Response(200, json=False)
+            self.photos[data["p_photo_id"]]["status"] = "uploaded"
+            return httpx.Response(200, json=True)
+        if name == "publish_catch_submission":
+            if self.fail_publish:
+                return httpx.Response(503)
+            matching = [r for r in self.receipts.values() if r["log_id"] == log_id]
+            if any(r["status"] != "pending" or r.get("deadline", now) <= now for r in matching):
+                row["status"] = "cleanup_pending"
+                for entry in matching:
+                    entry["status"] = "failed"
+                return httpx.Response(200, json=None)
+            assert row["status"] == "pending" and all(p["status"] == "uploaded" for p in photos)
+            row["status"] = "ready"
+            for photo in photos:
+                photo["status"] = "ready"
+            for receipt in self.receipts.values():
+                if receipt["log_id"] == log_id:
+                    receipt["status"] = "ready"
+            return (
+                httpx.Response(503) if self.lose_publish_response else httpx.Response(200, json=row)
+            )
+        if name == "claim_catch_cleanup":
+            if row["status"] in ("deleting", "cleanup_pending"):
+                return httpx.Response(200, json=True)
+            if row["status"] == "ready" and not data.get("p_delete"):
+                return httpx.Response(200, json=False)
+            row["status"] = "deleting" if data.get("p_delete") else "cleanup_pending"
+            for receipt in self.receipts.values():
+                if receipt["log_id"] == log_id:
+                    receipt["status"] = "deleted" if data.get("p_delete") else "failed"
+            return httpx.Response(200, json=True)
+        if name == "finish_catch_cleanup":
+            if row["status"] != "deleting":
+                return httpx.Response(200, json=False)
+            self.rows.pop(log_id)
+            for photo in photos:
+                self.photos.pop(photo["id"])
+            return httpx.Response(200, json=True)
+        if name == "begin_catch_photo_delete":
+            photo = self.photos.get(data["p_photo_id"])
+            if row["status"] != "ready" or not photo or photo["catch_log_id"] != log_id:
+                return httpx.Response(200, json=None)
+            photo["status"] = "deleting"
+            return httpx.Response(200, json=photo)
+        raise AssertionError(name)
+
 
 @pytest.fixture
 def catch_client() -> tuple[TestClient, Settings, PostgrestCatchStore]:
     """組合真正 API、service 與 repository，只替換 Google users 與 Supabase 網路邊界。"""
 
-    settings = Settings(_env_file=None, jwt_secret_key="catch-test-secret-with-at-least-32-bytes")
+    settings = Settings(
+        _env_file=None,
+        jwt_secret_key="catch-test-secret-with-at-least-32-bytes",
+        supabase_url="https://example.supabase.co",
+        supabase_secret_key="catch-test-server-key",
+    )
     store = PostgrestCatchStore()
     repository = SupabaseCatchLogsRepository(
         SupabaseRestClient(
@@ -121,6 +354,17 @@ def catch_client() -> tuple[TestClient, Settings, PostgrestCatchStore]:
     app.dependency_overrides[get_settings] = override_settings
     app.dependency_overrides[get_users_repository] = override_users
     app.dependency_overrides[get_catch_logs_repository] = override_catches
+
+    def override_photos() -> CatchPhotoService:
+        """保留真實照片 service，只替換 Data API 與 Storage 的網路。"""
+
+        return CatchPhotoService(
+            SupabaseCatchPhotoRepository(repository._client),
+            SupabaseStorageClient(settings, transport=httpx.MockTransport(store.handle)),
+            settings,
+        )
+
+    app.dependency_overrides[get_catch_photo_service] = override_photos
     return TestClient(app), settings, store
 
 

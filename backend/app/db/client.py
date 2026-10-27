@@ -1,9 +1,12 @@
+import logging
 from typing import Any
 
 import httpx
 
 from app.core.config import Settings
 from app.db.errors import DatabaseConfigurationError, DatabaseUnavailableError
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseRestClient:
@@ -56,12 +59,21 @@ class SupabaseRestClient:
                     json=json,
                     headers=headers,
                 )
+        except httpx.TimeoutException as error:
+            logger.warning(
+                "Supabase request failed: provider=database category=timeout type=%s",
+                type(error).__name__,
+            )
+            raise DatabaseUnavailableError("Supabase request timed out.") from error
         except httpx.HTTPError as error:
+            logger.warning("Supabase request failed: provider=database category=network")
             raise DatabaseUnavailableError("Supabase request could not be completed.") from error
 
         if response.status_code >= 400:
-            # TODO: 在後端記錄不含 secret 的 Supabase 狀態碼與錯誤類別，
-            # 方便區分設定、schema 與服務故障。
+            logger.warning(
+                "Supabase request failed: provider=database category=http status=%s",
+                response.status_code,
+            )
             raise DatabaseUnavailableError(
                 f"Supabase request failed with HTTP {response.status_code}."
             )
@@ -72,6 +84,7 @@ class SupabaseRestClient:
         try:
             return response.json()
         except ValueError as error:
+            logger.warning("Supabase request failed: provider=database category=invalid_response")
             raise DatabaseUnavailableError("Supabase returned invalid JSON.") from error
 
 

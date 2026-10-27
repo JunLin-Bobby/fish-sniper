@@ -2,10 +2,14 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CatchLog } from '../api/catchLogTypes.ts'
 import { formatCaughtAt } from '../lib/catchLogPresentation.ts'
+import { CatchPhotoGallery } from './CatchPhotoGallery.tsx'
 
 // 呈現私人紀錄並在刪除前二次確認，失敗後保留原資料與重試入口。
 export function CatchLogDetails(props: {
   record: CatchLog
+  apiBaseUrl: string
+  onUnauthorized: () => void
+  onTimeChanged: () => void
   busy: boolean
   error: string | null
   onEdit: () => void
@@ -28,6 +32,7 @@ export function CatchLogDetails(props: {
         {rows.map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-(--fs-muted)">{label}</dt><dd className="mt-1 break-words text-sm">{value}</dd></div>)}
       </dl>
       <div><h4 className="text-xs text-(--fs-muted)">{t('catchLogs.notes')}</h4><p className="mt-1 whitespace-pre-wrap break-words text-sm">{props.record.notes || t('catchLogs.unspecified')}</p></div>
+      <CatchPhotoGallery apiBaseUrl={props.apiBaseUrl} logId={props.record.id} busy={props.busy} onUnauthorized={props.onUnauthorized} onTimeChanged={props.onTimeChanged} />
       {props.error ? <p role="alert" className="text-sm text-red-300">{props.error}</p> : null}
       {confirmDelete ? (
         <div className="grid gap-3 rounded-lg border border-red-300/30 p-3">

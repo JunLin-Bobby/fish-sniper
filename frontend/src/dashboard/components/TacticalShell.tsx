@@ -10,6 +10,7 @@ export function TacticalShell(props: {
   children: ReactNode
   actions?: ReactNode
   sessionLabel?: string
+  submissionStatus?: ReactNode
 }) {
   const { t } = useTranslation()
   const { activeSection, setActiveSection } = useDashboardNavigation()
@@ -81,6 +82,7 @@ export function TacticalShell(props: {
               </div>
             </details>
           </div>
+          {props.submissionStatus ? <div className="basis-full">{props.submissionStatus}</div> : null}
         </header>
         <main className="dashboard-content min-w-0 p-3 sm:p-5">{props.children}</main>
       </div>

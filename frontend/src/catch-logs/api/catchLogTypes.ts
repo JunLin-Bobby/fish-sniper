@@ -23,3 +23,20 @@ export type CatchLogPage = {
   offset: number
   has_more: boolean
 }
+
+export type PhotoMetadata = {
+  captured_at: string | null
+  local_captured_at: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+export type CatchPhoto = {
+  id: string
+  photo_order: number
+  width: number
+  height: number
+  url: string
+  expires_at: string
+  metadata: PhotoMetadata
+}

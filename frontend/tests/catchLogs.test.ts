@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import { HttpStatusError } from '../src/api/http.ts'
-import { createCatchLog, deleteCatchLog, fetchCatchLog, fetchCatchLogs, updateCatchLog } from '../src/catch-logs/api/catchLogApi.ts'
+import { createCatchLog, createCatchLogWithPhotos, deleteCatchLog, deleteCatchPhoto, fetchCatchLog, fetchCatchLogs, updateCatchLog } from '../src/catch-logs/api/catchLogApi.ts'
+import { validatePhotoSelection, maxPhotoBytes } from '../src/catch-logs/lib/photoSelection.ts'
+import { readPendingSubmission, storePendingSubmission } from '../src/catch-logs/lib/submissionStorage.ts'
 import type { CatchLogInput } from '../src/catch-logs/api/catchLogTypes.ts'
 import { formatCaughtAt, toLocalDateTimeInput } from '../src/catch-logs/lib/catchLogPresentation.ts'
 
@@ -63,7 +65,8 @@ test('list sends bounded pagination and cancellation', async () => {
   const controller = new AbortController()
   globalThis.fetch = async (url, options) => {
     assert.equal(url, 'http://test/api/v1/catch-logs?limit=10&offset=10')
-    assert.equal(options?.signal, controller.signal)
+    assert.ok(options?.signal instanceof AbortSignal)
+    assert.equal(options.signal.aborted, false)
     return Response.json({ items: [], limit: 10, offset: 10, has_more: false })
   }
   assert.equal((await fetchCatchLogs('http://test', 10, controller.signal)).offset, 10)
@@ -97,4 +100,71 @@ test('local date input round trips the original instant', () => {
   assert.equal(new Date(toLocalDateTimeInput(instant)).toISOString(), new Date(instant).toISOString())
   assert.match(formatCaughtAt(instant, 'en'), /2026/)
   assert.match(formatCaughtAt(instant, 'zh-TW'), /2026/)
+})
+
+// multipart 不可設定 application/json 或省略 Bearer；文字、識別碼與兩張照片一起送出。
+test('one form submits fields and photos without overriding multipart boundary', async () => {
+  const photo = new File(['test bytes'], 'fish.heic', { type: 'image/heic' })
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'http://test/api/v1/catch-logs/with-photos')
+    const headers = new Headers(options?.headers)
+    assert.equal(headers.get('Content-Type'), null)
+    assert.equal(headers.get('Authorization'), 'Bearer test-fishsniper-token')
+    assert.ok(options?.body instanceof FormData)
+    assert.equal(headers.get('Idempotency-Key'), 'submission-id')
+    assert.deepEqual(JSON.parse(options.body.get('payload') as string), input)
+    assert.equal(options.body.get('submission_id'), 'submission-id')
+    assert.equal(options.body.getAll('photos').length, 2)
+    return Response.json({ id: 'saved', ...input }, { status: 201 })
+  }
+  assert.equal((await createCatchLogWithPhotos('http://test', input, [photo, photo], 'submission-id')).id, 'saved')
+})
+
+// 前端有快速檢查但不猜實際檔案格式，HEIC 仍交由後端解碼。
+test('photo selection enforces count and byte limits', () => {
+  assert.equal(validatePhotoSelection([]), true)
+  assert.equal(validatePhotoSelection([{ size: maxPhotoBytes }, { size: 1 }]), true)
+  assert.equal(validatePhotoSelection([{ size: 1 }, { size: 1 }, { size: 1 }]), false)
+  assert.equal(validatePhotoSelection([{ size: maxPhotoBytes + 1 }]), false)
+  assert.equal(validatePhotoSelection([{ size: 0 }]), false)
+})
+
+// 刪除只能送出指定紀錄及照片的識別碼，不讓前端任意指定檔案路徑。
+test('photo deletion encodes IDs and handles empty success', async () => {
+  globalThis.fetch = async (url) => {
+    assert.equal(url, 'http://test/api/v1/catch-logs/log%2Fid/photos/photo%2Fid')
+    return new Response(null, { status: 204 })
+  }
+  await deleteCatchPhoto('http://test', 'log/id', 'photo/id')
+})
+
+// 收據依帳號隔離且只存隨機識別碼，登出／換帳號不會讀到別人的未確認提交。
+test('pending submission storage is account scoped and handles blocked storage', () => {
+  const previousWindow = globalThis.window
+  const entries = new Map<string, string>()
+  let subject = 'account-a'
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    localStorage: {
+      getItem: (key: string) => key === 'fishsniper.accessToken' ? 'e30.' + btoa(JSON.stringify({ sub: subject })) + '.test' : entries.get(key) ?? null,
+      setItem: (key: string, value: string) => entries.set(key, value),
+      removeItem: (key: string) => entries.delete(key),
+    },
+  } })
+  try {
+    storePendingSubmission('submission-a')
+    assert.equal(readPendingSubmission(), 'submission-a')
+    subject = 'account-b'
+    assert.equal(readPendingSubmission(), null)
+    storePendingSubmission('submission-b')
+    storePendingSubmission(null)
+    subject = 'account-a'
+    assert.equal(readPendingSubmission(), 'submission-a')
+    assert.deepEqual([...entries.values()], ['submission-a'])
+    storePendingSubmission('newer-submission')
+    storePendingSubmission(null, 'account-a', 'submission-a')
+    assert.equal(readPendingSubmission(), 'newer-submission')
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: {} })
+    assert.equal(readPendingSubmission(), null)
+    assert.doesNotThrow(() => storePendingSubmission('not-persisted'))
+  } finally { Object.defineProperty(globalThis, 'window', { configurable: true, value: previousWindow }) }
 })
